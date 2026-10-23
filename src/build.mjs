@@ -59,8 +59,9 @@ const P = {
     search: "Search", domainH: "Domain", allDomains: "All domains", all: "All",
     countTpl: "{shown} of {total} shown",
     notesTitle: "Search the notes",
-    notesLead: `Every key concept, note, fact and term in one list. Type a word to search, or narrow it down by domain and row type. For a review, start with the <a href="cheat-tables.html">cheat tables</a>.`,
+    notesLead: `Every key concept, note, fact and term in one list. Type a word to search, or narrow it down by domain and row type.`,
     notesSearch: "Search notes (press /)",
+    notesNote: `This page is for looking something up. To study, use the <a href="cheat-tables.html">cheat tables</a>: each one has the summaries, decision table and exam traps for its domain on one page.`,
     tryH: "Try",
     filters: "Filters", sections: "Sections", sectionsTitle: "Jump to a task statement",
     showH: "Show", tNotes: "Notes", tFacts: "Facts", tTerms: "Terms",
@@ -84,7 +85,7 @@ const P = {
     cheatDesc: "Five one-page CCAR-F cheat tables, one per exam domain, with summaries, decision tables, comparison tables, and key facts and terms.",
     cheatPageTitle: (d) => `Cheat Table ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam), with a summary of every task statement.`,
-    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", trapsOf: (c) => `Traps for ${c}`,
+    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", trapsOf: (c) => `Traps for ${c}`, trapsAll: (n) => `All ${n} traps in this domain`,
     compareH: "Comparison tables", compareJump: "Comparisons", nTables: (n) => `${n} tables`,
     factsH: "Key facts & terms", factsJump: "Facts & terms", factsCol: "Key facts", termsCol: "Terms",
     factsLead: "The exact names, values and definitions behind each task statement, for when you want more detail. The switch remembers your choice, and the translate button on each box switches it to Arabic.",
@@ -146,8 +147,9 @@ const P = {
     search: "دوّر", domainH: "المجال", allDomains: "كل المجالات", all: "الكل",
     countTpl: "ظاهر {shown} من {total}",
     notesTitle: "دوّر في الملاحظات",
-    notesLead: `كل الأفكار الأساسية والملاحظات والمعلومات والمصطلحات في قايمة واحدة. اكتب كلمة عشان تدوّر، أو ضيّق النتايج بالمجال ونوع الصف. ولو بتراجع، ابدأ بـ<a href="cheat-tables.html">جداول المراجعة</a>.`,
+    notesLead: `كل الأفكار الأساسية والملاحظات والمعلومات والمصطلحات في قايمة واحدة. اكتب كلمة عشان تدوّر، أو ضيّق النتايج بالمجال ونوع الصف.`,
     notesSearch: "دوّر في الملاحظات (اضغط /)",
+    notesNote: `الصفحة دي عشان تدوّر على معلومة معيّنة. لو بتذاكر، استخدم <a href="cheat-tables.html">جداول المراجعة</a>: كل جدول فيه الملخصات وجدول القرارات ومطبات الامتحان بتاعة المجال بتاعه في صفحة واحدة.`,
     tryH: "جرّب",
     filters: "فلاتر", sections: "الأقسام", sectionsTitle: "روح لمهمة معيّنة",
     showH: "اعرض", tNotes: "الملاحظات", tFacts: "المعلومات", tTerms: "المصطلحات",
@@ -171,7 +173,7 @@ const P = {
     cheatDesc: "5 جداول مراجعة لامتحان CCAR-F، جدول لكل مجال، ومعاهم ملخصات وجداول قرارات وجداول مقارنة ومعلومات ومصطلحات مهمة.",
     cheatPageTitle: (d) => `جدول المراجعة ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان)، ومعاه ملخص لكل مهمة.`,
-    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", trapsOf: (c) => `مطبات ${c}`,
+    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", trapsOf: (c) => `مطبات ${c}`, trapsAll: (n) => `كل مطبات المجال (${n})`,
     compareH: "جداول المقارنة", compareJump: "المقارنات", nTables: (n) => `${n} جداول`,
     factsH: "معلومات ومصطلحات مهمة", factsJump: "المعلومات والمصطلحات", factsCol: "معلومات مهمة", termsCol: "مصطلحات",
     factsLead: "الأسامي والأرقام والتعريفات بالظبط لكل مهمة، لما تحب تعرف تفاصيل أكتر. الزرار بيفتكر اختيارك، وزرار الترجمة اللي في كل مربع بيعرضه بالإنجليزي.",
@@ -433,7 +435,7 @@ ${tasks}
   <div class="layout" data-filter-page data-store="notes" ${trxAttrs}>
     ${sidebar({ prefix: "n", placeholder: S.notesSearch, controls: kindControls })}
     <div style="min-width:0">
-      <div class="pagehead lead-only"><h1>${S.notesTitle}</h1><p>${S.notesLead}</p><div class="qchips"><span>${S.tryH}:</span>${tryChips}</div>${shortSwitch("short-switch")}</div>
+      <div class="pagehead lead-only"><h1>${S.notesTitle}</h1><p class="flash study-note">${icon("info")}<span>${S.notesNote}</span></p><p>${S.notesLead}</p><div class="qchips"><span>${S.tryH}:</span>${tryChips}</div>${shortSwitch("short-switch")}</div>
       ${notesDomains}
       <p class="empty-all" hidden>${S.notesEmpty}</p>
     </div>
@@ -444,25 +446,29 @@ ${tasks}
   });
 
   /* ------------------------------------------------------------ Traps */
+  // One task's traps table and exam tips, shared by the traps page and the traps dialog on each cheat table.
+  // A bookmarked trap links back to that dialog (#tr-2-3 on the domain's cheat table).
+  const trapBlock = (d, l, a) => {
+    const r = l.traps
+      .map((t, i) => {
+        const at = a.traps[i];
+        return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0" ${bmAttrs(`trap:${l.code}:${i}`, "trap", `cheat-table-${d.n}.html#${id("tr", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
+      })
+      .join("");
+    const tips = (l.exam_tips || []).length
+      ? `<div class="flash tips"><div class="flash-title">${icon("bulb", "oc")}${S.tipsH}</div><ul>${l.exam_tips.map((t) => `<li data-row data-d="${d.n}" data-kind="tip">${md(t)}</li>`).join("")}</ul></div>`
+      : "";
+    return `<div class="Box"><div class="tscroll"><table class="gh stack traps"><thead><tr>${S.trapsTh.map((h) => `<th>${h}</th>`).join("")}${trxTh}</tr></thead><tbody>${r}</tbody></table></div></div>
+  ${tips}`;
+  };
   const trapsDomains = data
     .map((d, di) => {
       const tasks = d.lessons
         .map((l, li) => {
-          const a = altData[di].lessons[li];
-          const r = l.traps
-            .map((t, i) => {
-              const at = a.traps[i];
-              return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0" ${bmAttrs(`trap:${l.code}:${i}`, "trap", `traps.html#${id("t", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
-            })
-            .join("");
-          const tips = (l.exam_tips || []).length
-            ? `<div class="flash tips"><div class="flash-title">${icon("bulb", "oc")}${S.tipsH}</div><ul>${l.exam_tips.map((t) => `<li data-row data-d="${d.n}" data-kind="tip">${md(t)}</li>`).join("")}</ul></div>`
-            : "";
           const cheat = hasCard(l.code) ? headLink(`cheat-table-${d.n}.html#${id("c", l.code)}`, "table", S.linkCheat) : "";
           return `<section class="task" id="${id("t", l.code)}">
   ${taskHead(l, cheat)}
-  <div class="Box"><div class="tscroll"><table class="gh stack traps"><thead><tr>${S.trapsTh.map((h) => `<th>${h}</th>`).join("")}${trxTh}</tr></thead><tbody>${r}</tbody></table></div></div>
-  ${tips}
+  ${trapBlock(d, l, altData[di].lessons[li])}
 </section>`;
         })
         .join("\n");
@@ -492,9 +498,27 @@ ${tasks}
   });
 
   /* ----------------------------------------------------- Cheat tables */
-  // A task's traps, as a small pill with their count (cheat tables index and each task card).
-  const trapPill = (l) =>
-    `<a class="trap-pill" href="traps.html#${id("t", l.code)}" title="${esc(S.trapsOf(l.code))}" aria-label="${esc(S.trapsOf(l.code))}">${icon("alert")}<span>${l.traps.length}</span></a>`;
+  // A task's traps, as a small pill with their count. On a cheat table it opens the traps dialog there
+  // (data-traps; the traps page is the no-JS fallback); on the index it opens that dialog on the domain's table.
+  const trapPill = (l, here) =>
+    `<a class="trap-pill" href="${here ? `traps.html#${id("t", l.code)}" data-traps="${l.code}` : `cheat-table-${l.code.split(".")[0]}.html#${id("tr", l.code)}`}" title="${esc(S.trapsOf(l.code))}" aria-label="${esc(S.trapsOf(l.code))}">${icon("alert")}<span>${l.traps.length}</span></a>`;
+  // The traps dialog of one cheat table: every task's traps, shown all together (data-traps="all") or one task at a time.
+  const trapsDialog = (d, di) => `
+<dialog class="sum-dialog traps-dialog" id="traps-dialog" aria-labelledby="tr-title" ${trxAttrs} data-label="${esc(S.domainLabel(d.n))} · ${esc(S.trapsTitle)}" data-all-title="${esc(S.trapsTitle)} · ${S.nTraps(stats(d).traps)}">
+  <div class="sum-inner">
+    <div class="sum-head">
+      <div class="sum-titles"><span class="Label" id="tr-label"></span><h2 id="tr-title"></h2></div>
+      <div class="sum-tools"><button type="button" class="sum-close" data-tr-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
+    </div>
+    <div class="sum-body tr-body" id="tr-body">
+      <label class="toggle tr-quiz"><input type="checkbox" data-tr-quiz> ${S.quiz}</label>
+      ${d.lessons
+        .map((l, li) => `<section class="tr-sec" data-code="${l.code}" data-title="${esc(md(l.task))}"><h3 class="tr-h"><span class="sum-code">${esc(l.code)}</span> ${md(l.task)}</h3>${trapBlock(d, l, altData[di].lessons[li])}</section>`)
+        .join("")}
+      <button type="button" class="btn btn-sm tr-all" data-traps="all">${icon("alert")}${S.trapsAll(stats(d).traps)}</button>
+    </div>
+  </div>
+</dialog>`;
   write("cheat-tables.html", {
     title: S.cheatTitle,
     description: S.cheatDesc,
@@ -518,7 +542,7 @@ ${tasks}
   <div class="cs-thumb-foot">
     <a class="btn btn-sm" href="cheat-table-${d.n}.html">${icon("table")}${S.openTable}</a>
     <a class="btn btn-sm" href="cheat-table-${d.n}.html#summary" data-sum="d${d.n}">${icon("book")}${S.sumDomain}</a>
-    <a class="btn btn-sm btn-traps" href="traps.html#d${d.n}">${icon("alert")}${S.cTraps(s.traps)}</a>
+    <a class="btn btn-sm btn-traps" href="cheat-table-${d.n}.html#traps">${icon("alert")}${S.cTraps(s.traps)}</a>
     <span class="stats"><span class="Counter">${S.cFacts(s.facts)}</span><span class="Counter">${S.cTerms(s.terms)}</span></span>
   </div>
 </div>`;
@@ -556,7 +580,7 @@ ${tasks}
       .join("\n")
       .replace(/(<button type="button" class="sum-mini" data-sum="(\d\.\d)"[^>]*>[\s\S]*?<\/button>)/g, (m, btn, code) => {
         const l = d.lessons.find((x) => x.code === code);
-        return l ? btn + trapPill(l) : btn;
+        return l ? btn + trapPill(l, true) : btn;
       });
     const cardId = (l) => `c-${l.code.replace(".", "-")}`;
     const carded = d.lessons.filter((l) => cards.includes(`id="${cardId(l)}"`));
@@ -584,13 +608,13 @@ ${tasks}
       active: "cheat",
       body: `
 <div class="container" style="--c:${d.color}" data-sheet data-jump>
-  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><a class="btn btn-sm btn-traps" href="traps.html#d${d.n}">${icon("alert")}${S.domTraps(d.n)}<span class="Counter">${s.traps}</span></a><p>${esc(sh.sub)}</p>
+  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><a class="btn btn-sm btn-traps" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.domTraps(d.n)}<span class="Counter">${s.traps}</span></a><p>${esc(sh.sub)}</p>
     <div class="sheet-nav">${sheetNav(d)}</div>
   </header>
   <nav class="jumpbar" aria-label="${esc(S.jumpLabel)}"><div class="jumpbar-in">
     ${sumBtn(`d${d.n}`, S.sumDomain).replace('class="sum-btn"', 'class="sum-btn jump-sum"')}
     ${jumpTasks}${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
-    <a class="jump-out" href="traps.html#d${d.n}">${icon("alert")}${S.linkTraps}</a>
+    <a class="jump-out" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.linkTraps}</a>
   </div></nav>
   <div class="cs-grid">${cards}</div>
   ${decide}
@@ -602,6 +626,7 @@ ${tasks}
     <div class="links"><a href="notes.html#d${d.n}">${S.domNotes(d.n)}</a><a href="traps.html#d${d.n}">${S.domTraps(d.n)}</a></div>
   </div>
   ${sumDialog("c", [d])}
+  ${trapsDialog(d, di)}
 </div>`,
     });
   });

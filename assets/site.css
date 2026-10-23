@@ -755,3 +755,19 @@ bdi.iso { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 /* The group chips pick one group, they don't switch a row type off: no strike-through. */
 .bm-filter button[aria-pressed="false"] { text-decoration: none; opacity: 1; }
 .bm-filter button[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+/* ---------- Traps dialog on each cheat table: the summary dialog's frame, wide enough for the 3-column table ---------- */
+.traps-dialog { width: min(1040px, calc(100% - 32px)); }
+.tr-body { gap: 16px; font-size: 14.5px; line-height: 1.6; }
+.tr-sec { display: grid; gap: 10px; min-width: 0; }
+.tr-sec[hidden], .tr-all[hidden] { display: none; }
+.tr-sec + .tr-sec { padding-top: 14px; border-top: 1px solid var(--border-muted); }
+.tr-h { font-size: 15px; }
+.traps-dialog.one .tr-h { display: none; }
+.tr-all { justify-self: start; }
+.tr-all svg { color: var(--danger); }
+@media (max-width: 560px) { .traps-dialog { width: 100%; } }
+
+/* ---------- Search page: "for studying, use the cheat tables" ---------- */
+.pagehead p.study-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; color: var(--fg); font-size: 14.5px; }
+.study-note svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--accent); }

@@ -193,6 +193,73 @@
     if (defaultSum && location.hash === "#summary") openSum(defaultSum);
   }
 
+  /* ---------- Traps dialog (each cheat table) ----------
+     data-traps is "all" for every trap in the domain or a task code such as "2.3". "#traps" or "#tr-2-3" in the URL
+     (from the cheat tables index and saved bookmarks) opens it on load; closing it drops the hash. */
+  var trDlg = $("#traps-dialog"), trKey = null;
+  if (trDlg) {
+    var trSecs = $$(".tr-sec", trDlg), trBody = $("#tr-body"), trAll = $(".tr-all", trDlg);
+    var trTitle = $("#tr-title"), trLabel = $("#tr-label"), trQuiz = $("[data-tr-quiz]", trDlg);
+    var openTraps = function (key) {
+      var sec = key === "all" ? null : trSecs.filter(function (s) { return s.getAttribute("data-code") === key; })[0];
+      if (key !== "all" && !sec) return false;
+      trKey = key;
+      trSecs.forEach(function (s) { s.hidden = !!sec && s !== sec; });
+      trLabel.textContent = trDlg.getAttribute("data-label");
+      trTitle.innerHTML = sec ? '<span class="sum-code">' + key + "</span> " + sec.getAttribute("data-title") : trDlg.getAttribute("data-all-title");
+      trAll.hidden = !sec;
+      trDlg.classList.toggle("one", !!sec); // one task: the title already names it
+      showModal(trDlg);
+      trBody.scrollTop = 0;
+      return true;
+    };
+    var dropTrHash = function () {
+      if (/^#(traps|tr-\d-\d)$/.test(location.hash)) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* not allowed here */ } }
+    };
+    var closeTraps = function () { closeModal(trDlg); dropTrHash(); };
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-traps]");
+      if (b && openTraps(b.getAttribute("data-traps"))) e.preventDefault();
+    });
+    trDlg.addEventListener("click", function (e) {
+      if (e.target === trDlg || e.target.closest("[data-tr-close]")) closeTraps(); // backdrop or close button
+    });
+    trDlg.addEventListener("close", dropTrHash); // Escape key
+
+    // Quiz mode, shared with the traps page: "Why it's wrong" and "What's actually true" stay hidden until tapped;
+    // tapping the trap itself (or Enter on its row) reveals or hides both.
+    var setTrQuiz = function (on) {
+      trDlg.classList.toggle("quiz", on);
+      trQuiz.checked = on;
+      $$("td.whycol, td.fixcol", trDlg).forEach(function (c) {
+        c.classList.remove("revealed");
+        if (on) c.setAttribute("tabindex", "0"); else c.removeAttribute("tabindex");
+      });
+    };
+    var trReveal = function (row, cell) {
+      if (cell) { cell.classList.toggle("revealed"); return; }
+      var cells = $$("td.whycol, td.fixcol", row);
+      var show = cells.some(function (c) { return !c.classList.contains("revealed"); });
+      cells.forEach(function (c) { c.classList.toggle("revealed", show); });
+    };
+    trQuiz.addEventListener("change", function () { setTrQuiz(trQuiz.checked); store.set("ccarf-quiz", trQuiz.checked ? "1" : "0"); });
+    trBody.addEventListener("click", function (e) {
+      if (!trDlg.classList.contains("quiz") || e.target.closest("[data-trx], [data-bm]")) return;
+      var row = e.target.closest("table.traps tbody tr");
+      if (row) trReveal(row, e.target.closest("td.whycol, td.fixcol"));
+    });
+    trBody.addEventListener("keydown", function (e) {
+      if (!trDlg.classList.contains("quiz") || (e.key !== "Enter" && e.key !== " ")) return;
+      var t = e.target;
+      if (t.matches("table.traps tbody tr")) { e.preventDefault(); trReveal(t, null); }
+      else if (t.matches("table.traps td.whycol, table.traps td.fixcol")) { e.preventDefault(); trReveal(t.closest("tr"), t); }
+    });
+    setTrQuiz(store.get("ccarf-quiz") === "1");
+
+    var trHash = /^#(traps|tr-(\d)-(\d))$/.exec(location.hash);
+    if (trHash) openTraps(trHash[2] ? trHash[2] + "." + trHash[3] : "all");
+  }
+
   /* ---------- Cheat tables (index and each table): the pinned jump bar follows the scroll position ---------- */
   var sheet = $("[data-jump]");
   if (sheet) {
@@ -266,6 +333,7 @@
     follow();
     getAnchor = function () {
       if (dlg && dlg.open && dlg.getAttribute("data-default")) return "summary";
+      if (trDlg && trDlg.open) return trKey === "all" ? "traps" : "tr-" + trKey.replace(".", "-");
       var i = inView();
       return i >= 0 ? jumpLinks[i].getAttribute("href").slice(1) : "";
     };
