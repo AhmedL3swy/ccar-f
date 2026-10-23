@@ -1,8 +1,8 @@
 # CCAR-F Field Guide
 
-Unofficial study site for the Claude Certified Architect – Foundations (CCAR-F) exam, in English and Egyptian Arabic: notes (with short versions), exam traps with a quiz mode, "View summary" popups, five one-page cheat tables and a disclaimer.
+Unofficial study site for the Claude Certified Architect – Foundations (CCAR-F) exam, in English and Egyptian Arabic: five one-page cheat tables (each with a decision table, comparison tables, key facts and terms, and a plain-language summary of every task statement), exam traps with a quiz mode, a search page over all the notes (with short versions), and a disclaimer. On phones a bottom tab bar, a pinned search row and a pinned jump bar keep navigation one tap away.
 
-Everything is in this one static folder. Upload the whole folder as it is.
+Everything is in this one static folder. The build packs it into `website.zip` for upload.
 
 ```
 website/
@@ -18,9 +18,11 @@ website/
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Upload assets**.
 2. Name the project (it becomes `<name>.pages.dev`) → **Create project**.
-3. Drag this **`website` folder** (or `website.zip`, created next to it by the build) into the upload box → **Deploy site**.
+3. Drag **`website.zip`** (created next to this folder by the build) into the upload box → **Deploy site**.
 
-To publish an update: rebuild (below), then open the project → **Deployments** → **Create deployment** and upload the folder or zip again.
+Upload the zip, not the folder: the folder also holds the `.git` history, which would become public. The zip leaves out every dot-folder.
+
+To publish an update: rebuild (below), then open the project → **Deployments** → **Create deployment** and upload the new zip.
 
 - Cloudflare serves clean URLs: `/notes.html` also works as `/notes`.
 - `404.html` is used automatically for missing pages.
@@ -33,9 +35,9 @@ The same folder works on any static host (Netlify Drop, Vercel, GitHub Pages, an
 
 | File | What it holds |
 |---|---|
-| `data/d1.json` … `d5.json` | English: domain `intro`; per task statement `task`, `summary`, `key_concept` (with `short`), `notes` (each with a `short` version), `facts`, `terms`, `traps`, `exam_tips`; plus the domain's `comparisons`. |
+| `data/d1.json` … `d5.json` | English: domain `intro`; per task statement `task`, `summary` (the plain-language summary shown by the Summary buttons: one or two paragraphs, about 170 words), `key_concept` (with `short`), `notes` (each with a `short` version), `facts`, `terms`, `traps`, `exam_tips`; plus the domain's `comparisons`. |
 | `data/d1.ar.json` … `d5.ar.json` | The same in Egyptian Arabic, same structure. Code in `backticks` must match the English exactly. |
-| `src/cheatsheets.mjs`, `src/cheatsheets.ar.mjs` | The five cheat tables, English and Arabic. |
+| `src/cheatsheets.mjs`, `src/cheatsheets.ar.mjs` | The five cheat tables, English and Arabic: the cards, plus each domain's decision table (`decide`, rows of symptom → usual answer). |
 | `src/lib.mjs` | Page layout, icons, domain names and interface text (`STR`). |
 | `src/build.mjs` | Page text for both languages (`P`) and the page generator. |
 | `assets/site.css`, `assets/site.js` | Styles and behaviour. |
@@ -48,4 +50,4 @@ node src/build.mjs
 
 The build rewrites only the `.html` pages (and `assets/favicon.svg`); it never touches `data/`, `src/`, `assets/site.css`, `assets/site.js` or this README. It also refreshes `website.zip` next to this folder. Don't edit the `.html` files by hand: the next build replaces them.
 
-Text fields accept `` `backticks` `` for inline code; everything else is plain text.
+Text fields accept `` `backticks` `` for inline code. Summaries also accept `**bold**` for key terms (never inside code) and a blank line between paragraphs. Everything else is plain text.

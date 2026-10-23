@@ -30,7 +30,10 @@ export const DOMAINS = [
 // Interface text. Arabic is Egyptian colloquial on purpose; technical terms stay in English.
 export const STR = {
   en: {
-    nav: { home: "Home", notes: "Notes", traps: "Exam Traps", cheat: "Cheat Tables", disclaimer: "Disclaimer" },
+    nav: { home: "Home", notes: "Search", traps: "Exam Traps", cheat: "Cheat Tables", disclaimer: "Disclaimer" },
+    tabs: { home: "Home", cheat: "Cheat tables", traps: "Traps", notes: "Search" },
+    tabsLabel: "Sections of the site",
+    toTop: "Back to top",
     skip: "Skip to content",
     themeBtn: "Switch between light and dark theme",
     langLabel: "Language",
@@ -39,7 +42,10 @@ export const STR = {
     footer2: `Not affiliated with or endorsed by Anthropic. Check the official documentation before relying on a detail. <a href="disclaimer.html">Read the disclaimer</a>.`,
   },
   ar: {
-    nav: { home: "الرئيسية", notes: "الملاحظات", traps: "مطبات الامتحان", cheat: "جداول المراجعة", disclaimer: "تنويه" },
+    nav: { home: "الرئيسية", notes: "بحث", traps: "مطبات الامتحان", cheat: "جداول المراجعة", disclaimer: "تنويه" },
+    tabs: { home: "الرئيسية", cheat: "المراجعة", traps: "المطبات", notes: "بحث" },
+    tabsLabel: "أقسام الموقع",
+    toTop: "ارجع لفوق",
     skip: "روح للمحتوى على طول",
     themeBtn: "بدّل بين الوضع الفاتح والغامق",
     langLabel: "اللغة",
@@ -62,10 +68,14 @@ export const esc = (s) =>
 
 // Escape, then turn `code` spans into <code>. In Arabic text, an English term in parentheses — e.g.
 // "(Context rot)" — is wrapped in <bdi> so right-to-left layout doesn't reorder its pieces.
+// A parenthetical that also holds Arabic words is left alone: forcing it left-to-right would scramble them.
 const ARABIC = /[؀-ۿ]/;
+const ARABIC_LETTER = /[ء-يٮ-ۓۺ-ۼ]/;
 export const md = (s) => {
   const h = esc(s).replace(/`([^`]+)`/g, "<code>$1</code>");
-  return ARABIC.test(h) ? h.replace(/\(([^()<>]*[A-Za-z][^()<>]*)\)/g, '<bdi class="iso">($1)</bdi>') : h;
+  return ARABIC.test(h)
+    ? h.replace(/\(([^()<>]*[A-Za-z][^()<>]*)\)/g, (m, inner) => (ARABIC_LETTER.test(inner) ? m : `<bdi class="iso">(${inner})</bdi>`))
+    : h;
 };
 
 const P = {
@@ -117,6 +127,7 @@ const P = {
   external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   arrowRight: '<path d="M5 12h14M12 5l7 7-7 7"/>',
   arrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  arrowUp: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
   table: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 9h18M3 15h18"/>',
@@ -138,12 +149,20 @@ const P = {
 export const icon = (name, cls = "") =>
   `<svg${cls ? ` class="${cls}"` : ""} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.info}</svg>`;
 
+// The notes page is the site's search page, so it is labelled "Search" everywhere.
 const NAV = [
   { href: "index.html", key: "home" },
-  { href: "notes.html", key: "notes" },
-  { href: "traps.html", key: "traps" },
   { href: "cheat-tables.html", key: "cheat" },
+  { href: "traps.html", key: "traps" },
+  { href: "notes.html", key: "notes" },
   { href: "disclaimer.html", key: "disclaimer" },
+];
+// Phones get a fixed bottom tab bar instead of the header links, so navigation is always one tap away.
+const TABS = [
+  { href: "index.html", key: "home", icon: "home" },
+  { href: "cheat-tables.html", key: "cheat", icon: "table" },
+  { href: "traps.html", key: "traps", icon: "alert" },
+  { href: "notes.html", key: "notes", icon: "search" },
 ];
 
 // English pages live at the site root, Arabic pages under ar/ with the same file names.
@@ -155,6 +174,9 @@ export function layout({ lang = "en", page, title, description, active, body, bo
   const fullTitle = title ? `${title} · ${SITE.name}` : SITE.name;
   const nav = NAV.map(
     (n) => `<li><a href="${n.href}"${n.key === active ? ' aria-current="page"' : ""}><span>${S.nav[n.key]}</span></a></li>`
+  ).join("");
+  const tabs = TABS.map(
+    (t) => `<a href="${t.href}"${t.key === active ? ' aria-current="page"' : ""}>${icon(t.icon)}<span>${S.tabs[t.key]}</span></a>`
   ).join("");
   return `<!doctype html>
 <html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}">
@@ -207,6 +229,8 @@ ${body}
     <nav aria-label="Footer"><ul>${NAV.slice(1).map((n) => `<li><a href="${n.href}">${S.nav[n.key]}</a></li>`).join("")}</ul></nav>
   </div>
 </footer>
+<nav class="tabbar" aria-label="${S.tabsLabel}">${tabs}</nav>
+<button type="button" class="totop" data-totop aria-label="${S.toTop}" title="${S.toTop}" hidden>${icon("arrowUp")}</button>
 <script src="${up}assets/site.js"></script>
 </body>
 </html>

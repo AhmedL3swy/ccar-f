@@ -38,28 +38,31 @@ const dataFor = (lang) =>
 /* ------------------------------------------------------------- Page text */
 const P = {
   en: {
-    homeDesc: (T) => `Unofficial notes and exam traps for the ${SITE.exam} (CCAR-F) exam, organised by domain and task statement.`,
-    homeLead: `Notes and exam traps for the ${SITE.exam} exam, organised by domain and task statement. Unofficial, written for our study group.`,
-    btnNotes: "Open the notes", btnTraps: "Drill the exam traps", btnCheat: "Cheat tables",
-    entryNotesTitle: "Notes",
-    entryNotes: (T) => `Rules, mechanisms and distinctions for all ${T.lessons} task statements, with key facts and terms. Grouped by domain; search and filter.`,
+    homeDesc: (T) => `Unofficial cheat tables, summaries, exam traps and searchable notes for the ${SITE.exam} (CCAR-F) exam, organised by domain and task statement.`,
+    homeLead: `One-page cheat tables with plain-language summaries, exam traps to drill, and every note searchable, for the ${SITE.exam} exam. Unofficial, written for our study group.`,
+    btnNotes: "Search the notes", btnTraps: "Drill the exam traps", btnCheat: "Open the cheat tables",
+    entryNotesTitle: "Search the notes",
+    entryNotes: (T) => `Every note, fact and term for all ${T.lessons} task statements in one searchable list, for when you need to look something up.`,
     cNotes: (n) => `${n} notes`, cFacts: (n) => `${n} facts`, cTerms: (n) => `${n} terms`, cTraps: (n) => `${n} traps`, cTables: "5 tables",
     entryTrapsTitle: "Exam traps",
     entryTraps: "Beliefs that sound right but aren't, with why each one fails and what's actually true. Quiz mode hides the answers.",
     entryCheatTitle: "Cheat tables",
-    entryCheat: "One page per domain: key points, anti-patterns, configuration and comparison tables for a last review.",
+    entryCheat: "Start here. One page per domain: key points, a decision table, comparison tables, key facts and terms, and a plain-language summary of every task statement.",
+    cSummaries: (n) => `${n} summaries`,
     domainsH: "Domains",
     th: ["Domain", "Exam weight", "Task statements", "Notes", "Traps", "Open"],
-    linkNotes: "Notes", linkTraps: "Traps", linkCheat: "Cheat table",
+    linkNotes: "Notes", linkTraps: "Traps", linkCheat: "Cheat table", linkSummary: "Summary",
     footnote: `Reported exam format: 60 questions, 120 minutes, 720 of 1000 to pass. This comes from candidates and third-party guides; confirm it in the official exam guide. Not affiliated with Anthropic. See the <a href="disclaimer.html">disclaimer</a>.`,
     domainLabel: (n) => `Domain ${n}`,
     pctExam: (w) => `${w}% of exam`,
     nTasks: (n) => `${n} task statements`, nTraps: (n) => `${n} traps`,
     search: "Search", domainH: "Domain", allDomains: "All domains", all: "All",
     countTpl: "{shown} of {total} shown",
-    notesTitle: "Notes",
-    notesLead: `Key concepts, notes, facts and terms for every task statement. Pick a domain on the left, toggle row types, or search for a keyword such as <code>tool_choice</code> or <code>CLAUDE.md</code>.`,
+    notesTitle: "Search the notes",
+    notesLead: `Every key concept, note, fact and term in one list. Type a word to search, or narrow it down by domain and row type. For a review, start with the <a href="cheat-tables.html">cheat tables</a>.`,
     notesSearch: "Search notes (press /)",
+    tryH: "Try",
+    filters: "Filters", sections: "Sections", sectionsTitle: "Jump to a task statement",
     showH: "Show", tNotes: "Notes", tFacts: "Facts", tTerms: "Terms",
     notesTh: ["Topic", "Note"],
     kinds: { concept: "Key concept", fact: "Fact", term: "Term" },
@@ -77,11 +80,17 @@ const P = {
     trapsEmpty: "No traps match. Clear the search or pick another domain.",
     trapsDesc: (T) => `${T.traps} CCAR-F exam traps grouped by domain and task statement: why each belief is wrong and what's actually true, with a quiz mode.`,
     cheatTitle: "Cheat tables",
-    cheatLead: "One page per domain with the key points, anti-patterns, configuration details and comparison tables. Use them for a last review; each prints cleanly from the browser.",
-    cheatDesc: "Five one-page CCAR-F cheat tables, one per exam domain, with comparison tables.",
+    cheatLead: "One page per domain with the key points, anti-patterns, a decision table, comparison tables, and key facts and terms. Each has a Summary button that explains every task statement in plain language, and each prints cleanly from the browser.",
+    cheatDesc: "Five one-page CCAR-F cheat tables, one per exam domain, with summaries, decision tables, comparison tables, and key facts and terms.",
     cheatPageTitle: (d) => `Cheat Table ${d.n}: ${d.title}`,
-    cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam).`,
-    compareH: "Comparison tables",
+    cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam), with a summary of every task statement.`,
+    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page",
+    compareH: "Comparison tables", compareJump: "Comparisons",
+    factsH: "Key facts & terms", factsJump: "Facts & terms", factsCol: "Key facts", termsCol: "Terms",
+    factsLead: "The exact names, values and definitions behind each task statement, for when you want more detail. The switch remembers your choice, and the translate button on each box switches it to Arabic.",
+    ftCount: (f, t) => `${f} facts · ${t} terms`, ftShow: "Show",
+    decideH: "Decision table", decideJump: "Decision table", decideTh: ["Symptom in the question", "Usual answer"],
+    decideLead: "The usual fix for each symptom a question describes. Use it to check your reasoning, not as a keyword lookup: the details of the scenario decide.",
     domNotes: (n) => `Domain ${n} notes`, domTraps: (n) => `Domain ${n} traps`,
     discTitle: "Disclaimer",
     discDesc: "The CCAR-F Field Guide is an unofficial study aid, not affiliated with Anthropic. What it covers, accuracy notes and limits.",
@@ -90,14 +99,14 @@ const P = {
     <h2>Unofficial and independent</h2>
     <p>The ${SITE.name} is an independent study aid made by and for a study group. It is not affiliated with, endorsed by, sponsored by or approved by Anthropic, PBC. "Anthropic", "Claude", "Claude Code" and "Claude Certified Architect" are names and trademarks of Anthropic, used here only to identify the exam this guide helps people prepare for.</p>
     <h2>About the content</h2>
-    <p>The notes and exam traps are study notes organised by the exam's five domains and its published task statements. The cheat tables summarise each domain on one page.</p>
+    <p>The notes and exam traps are study notes organised by the exam's five domains and its published task statements. The cheat tables summarise each domain on one page, with a plain-language summary of every task statement.</p>
     <h2>No real exam questions</h2>
     <p>Nothing on this site comes from the live exam. It contains no exam questions, answers or recalled items, and it should never be used to share them. Candidates are bound by the exam's confidentiality terms.</p>
     <h2>How to use it</h2>
-    <p>The exam presents varied scenarios that need reasoning, so this guide doesn't map keywords to answers. Use the notes to understand why each mechanism works the way it does, and the traps to practise explaining why a plausible answer fails.</p>
+    <p>The exam presents varied scenarios that need reasoning. The decision tables list the usual answer for each symptom a question describes, but use them to check your reasoning, not as keyword lookups: the details of the scenario decide. Start with the cheat tables and their summaries to understand why each mechanism works the way it does, use the traps to practise explaining why a plausible answer fails, and search the notes when you need the detail.</p>
     <h2>Accuracy</h2>
     <ul>
-      <li>The notes were drafted with AI assistance and may contain mistakes or omissions.</li>
+      <li>The notes and summaries were drafted with AI assistance and may contain mistakes or omissions.</li>
       <li>Claude, Claude Code, the Agent SDK and MCP change quickly. Flags, field names, limits and model behaviour described here may be out of date. Check the official Anthropic documentation before relying on any detail.</li>
       <li>Task statements 1.1, 2.4 and 3.6 are only partly covered.</li>
       <li>The exam format on the home page (60 questions, 120 minutes, 720 of 1000 to pass) is as reported by candidates and third-party guides, not from an official source.</li>
@@ -107,31 +116,34 @@ const P = {
     <h2>Use</h2>
     <p>This guide is for our study group's own use. Please don't sell it or present it as official material. If you spot a mistake, tell the maintainer so it can be fixed for everyone.</p>`,
     nfTitle: "Page not found",
-    nfBody: `The page you asked for doesn't exist. Go to the <a href="index.html">home page</a>, the <a href="notes.html">notes</a> or the <a href="traps.html">exam traps</a>.`,
+    nfBody: `The page you asked for doesn't exist. Go to the <a href="index.html">home page</a>, the <a href="cheat-tables.html">cheat tables</a>, the <a href="traps.html">exam traps</a> or <a href="notes.html">search the notes</a>.`,
   },
   ar: {
-    homeDesc: (T) => `ملاحظات ومطبات مش رسمية لامتحان ${SITE.exam} (CCAR-F)، متقسمة على المجالات والمهام.`,
-    homeLead: `ملاحظات ومطبات لامتحان ${SITE.exam}، متقسمة على المجالات والمهام. مش محتوى رسمي، معمول لجروب المذاكرة بتاعنا.`,
-    btnNotes: "افتح الملاحظات", btnTraps: "ذاكر المطبات", btnCheat: "جداول المراجعة",
-    entryNotesTitle: "الملاحظات",
-    entryNotes: (T) => `القواعد وطريقة شغل كل حاجة والفروقات المهمة في الـ ${T.lessons} مهمة، ومعاها المعلومات الأساسية والمصطلحات. متقسمة حسب المجال، وتقدر تدوّر وتفلتر.`,
+    homeDesc: (T) => `جداول مراجعة وملخصات ومطبات وملاحظات تقدر تدوّر فيها لامتحان ${SITE.exam} (CCAR-F)، متقسمة على المجالات والمهام. مش محتوى رسمي.`,
+    homeLead: `جداول مراجعة في صفحة واحدة لكل مجال ومعاها ملخصات بكلام بسيط، ومطبات تتمرن عليها، وكل الملاحظات تقدر تدوّر فيها، لامتحان ${SITE.exam}. مش محتوى رسمي، معمول لجروب المذاكرة بتاعنا.`,
+    btnNotes: "دوّر في الملاحظات", btnTraps: "ذاكر المطبات", btnCheat: "افتح جداول المراجعة",
+    entryNotesTitle: "دوّر في الملاحظات",
+    entryNotes: (T) => `كل الملاحظات والمعلومات والمصطلحات بتاعة الـ ${T.lessons} مهمة في قايمة واحدة تقدر تدوّر فيها، لما تحتاج تدوّر على حاجة معيّنة.`,
     cNotes: (n) => `${n} ملاحظة`, cFacts: (n) => `${n} معلومة`, cTerms: (n) => `${n} مصطلح`, cTraps: (n) => `${n} مطب`, cTables: "5 جداول",
     entryTrapsTitle: "مطبات الامتحان",
     entryTraps: "أفكار شكلها صح بس هي غلط، وليه غلط، وإيه الصح فعلاً. وضع الاختبار بيخبّي الإجابات لحد ما تجاوب بنفسك.",
     entryCheatTitle: "جداول المراجعة",
-    entryCheat: "صفحة واحدة لكل مجال: أهم النقط، الحاجات اللي تبعد عنها، الإعدادات، وجداول المقارنة للمراجعة الأخيرة.",
+    entryCheat: "ابدأ من هنا. صفحة لكل مجال: أهم النقط، وجدول قرارات، وجداول المقارنة، والمعلومات والمصطلحات المهمة، وملخص بكلام بسيط لكل مهمة.",
+    cSummaries: (n) => `${n} ملخص`,
     domainsH: "المجالات",
     th: ["المجال", "الوزن في الامتحان", "المهام", "الملاحظات", "المطبات", "افتح"],
-    linkNotes: "الملاحظات", linkTraps: "المطبات", linkCheat: "جدول المراجعة",
+    linkNotes: "الملاحظات", linkTraps: "المطبات", linkCheat: "جدول المراجعة", linkSummary: "الملخص",
     footnote: `شكل الامتحان زي ما الناس اللي امتحنت والمواقع التانية بتقول: 60 سؤال، 120 دقيقة، ولازم تجيب 720 من 1000 عشان تنجح. اتأكد من دليل الامتحان الرسمي. الموقع ده مالوش علاقة بـ Anthropic، شوف <a href="disclaimer.html">التنويه</a>.`,
     domainLabel: (n) => `المجال ${n}`,
     pctExam: (w) => `${w}% من الامتحان`,
     nTasks: (n) => `${n} مهام`, nTraps: (n) => `${n} مطب`,
     search: "دوّر", domainH: "المجال", allDomains: "كل المجالات", all: "الكل",
     countTpl: "ظاهر {shown} من {total}",
-    notesTitle: "الملاحظات",
-    notesLead: `الأفكار الأساسية والملاحظات والمعلومات والمصطلحات لكل مهمة. اختار مجال من على الجنب، شغّل أو اقفل أنواع الصفوف، أو دوّر على كلمة زي <code>tool_choice</code> أو <code>CLAUDE.md</code>.`,
+    notesTitle: "دوّر في الملاحظات",
+    notesLead: `كل الأفكار الأساسية والملاحظات والمعلومات والمصطلحات في قايمة واحدة. اكتب كلمة عشان تدوّر، أو ضيّق النتايج بالمجال ونوع الصف. ولو بتراجع، ابدأ بـ<a href="cheat-tables.html">جداول المراجعة</a>.`,
     notesSearch: "دوّر في الملاحظات (اضغط /)",
+    tryH: "جرّب",
+    filters: "فلاتر", sections: "الأقسام", sectionsTitle: "روح لمهمة معيّنة",
     showH: "اعرض", tNotes: "الملاحظات", tFacts: "المعلومات", tTerms: "المصطلحات",
     notesTh: ["الموضوع", "الملاحظة"],
     kinds: { concept: "الفكرة الأساسية", fact: "معلومة", term: "مصطلح" },
@@ -149,11 +161,17 @@ const P = {
     trapsEmpty: "مفيش مطبات مطابقة. امسح البحث أو اختار مجال تاني.",
     trapsDesc: (T) => `${T.traps} مطب في امتحان CCAR-F متقسمين حسب المجال والمهمة: الفكرة غلط ليه والصح إيه، ومعاهم وضع اختبار.`,
     cheatTitle: "جداول المراجعة",
-    cheatLead: "صفحة لكل مجال فيها أهم النقط، والحاجات اللي تبعد عنها، وتفاصيل الإعدادات، وجداول المقارنة. استخدمها في المراجعة الأخيرة، وكل صفحة بتتطبع كويس من المتصفح.",
-    cheatDesc: "5 جداول مراجعة لامتحان CCAR-F، جدول لكل مجال، ومعاهم جداول مقارنة.",
+    cheatLead: "صفحة لكل مجال فيها أهم النقط، والحاجات اللي تبعد عنها، وجدول قرارات، وجداول المقارنة، والمعلومات والمصطلحات المهمة. في كل صفحة زرار «الملخص» بيشرح كل مهمة بكلام بسيط، وكل صفحة بتتطبع كويس من المتصفح.",
+    cheatDesc: "5 جداول مراجعة لامتحان CCAR-F، جدول لكل مجال، ومعاهم ملخصات وجداول قرارات وجداول مقارنة ومعلومات ومصطلحات مهمة.",
     cheatPageTitle: (d) => `جدول المراجعة ${d.n}: ${d.title}`,
-    cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان).`,
-    compareH: "جداول المقارنة",
+    cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان)، ومعاه ملخص لكل مهمة.`,
+    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي",
+    compareH: "جداول المقارنة", compareJump: "المقارنات",
+    factsH: "معلومات ومصطلحات مهمة", factsJump: "المعلومات والمصطلحات", factsCol: "معلومات مهمة", termsCol: "مصطلحات",
+    factsLead: "الأسامي والأرقام والتعريفات بالظبط لكل مهمة، لما تحب تعرف تفاصيل أكتر. الزرار بيفتكر اختيارك، وزرار الترجمة اللي في كل مربع بيعرضه بالإنجليزي.",
+    ftCount: (f, t) => `${f} معلومة · ${t} مصطلح`, ftShow: "اعرض",
+    decideH: "جدول القرارات", decideJump: "جدول القرارات", decideTh: ["اللي في السؤال", "الإجابة المعتادة"],
+    decideLead: "الحل المعتاد لكل عرَض بيوصفه السؤال. استخدمه عشان تراجع تفكيرك، مش عشان تطابق كلمات: تفاصيل السيناريو هي اللي بتحدد.",
     domNotes: (n) => `ملاحظات المجال ${n}`, domTraps: (n) => `مطبات المجال ${n}`,
     discTitle: "تنويه",
     discDesc: "دليل CCAR-F Field Guide مجهود مذاكرة مش رسمي ومالوش علاقة بـ Anthropic. بيغطي إيه، وملاحظات عن الدقة، وحدوده.",
@@ -162,14 +180,14 @@ const P = {
     <h2>مش رسمي ومستقل</h2>
     <p>دليل ${SITE.name} معمول من جروب مذاكرة وليه. مالوش أي علاقة بشركة Anthropic، ولا هي راعياه أو موافقة عليه. الأسماء "Anthropic" و"Claude" و"Claude Code" و"Claude Certified Architect" أسماء وعلامات تجارية بتاعة Anthropic، واحنا بنستخدمها بس عشان نوضح الامتحان اللي الدليل ده بيساعدك تذاكر له.</p>
     <h2>عن المحتوى</h2>
-    <p>الملاحظات والمطبات دي ملاحظات مذاكرة متقسمة على المجالات الخمسة بتوع الامتحان والمهام المنشورة بتاعته. وجداول المراجعة بتلخص كل مجال في صفحة واحدة.</p>
+    <p>الملاحظات والمطبات دي ملاحظات مذاكرة متقسمة على المجالات الخمسة بتوع الامتحان والمهام المنشورة بتاعته. وجداول المراجعة بتلخص كل مجال في صفحة واحدة، ومعاها ملخص بكلام بسيط لكل مهمة.</p>
     <h2>مفيش أسئلة امتحان حقيقية</h2>
     <p>مفيش أي حاجة هنا جاية من الامتحان نفسه: لا أسئلة ولا إجابات ولا حاجة حد افتكرها من الامتحان، وماينفعش الموقع يتستخدم عشان ينشر حاجة زي كده. اللي بيمتحن ملتزم بشروط السرية بتاعة الامتحان.</p>
     <h2>تستخدمه إزاي</h2>
-    <p>الامتحان بالإنجليزي وبيجيب سيناريوهات مختلفة محتاجة تفكير، عشان كده الدليل ده مش بيربط كلمات بإجابات جاهزة. الأحسن تذاكر من النسخة الإنجليزية وتستخدم زرار الترجمة اللي جنب كل صف لما تحتاجه. استخدم الملاحظات عشان تفهم كل آلية شغالة كده ليه، والمطبات عشان تتمرن تشرح ليه إجابة شكلها منطقي طلعت غلط.</p>
+    <p>الامتحان بالإنجليزي وبيجيب سيناريوهات مختلفة محتاجة تفكير. الأحسن تذاكر من النسخة الإنجليزية وتستخدم زرار الترجمة اللي جنب كل صف لما تحتاجه. جداول القرارات بتقولك الإجابة المعتادة لكل عرَض بيوصفه السؤال، بس استخدمها عشان تراجع تفكيرك، مش عشان تطابق كلمات: تفاصيل السيناريو هي اللي بتحدد. ابدأ بجداول المراجعة والملخصات بتاعتها عشان تفهم كل آلية شغالة كده ليه، واستخدم المطبات عشان تتمرن تشرح ليه إجابة شكلها منطقي طلعت غلط، ودوّر في الملاحظات لما تحتاج التفاصيل.</p>
     <h2>الدقة</h2>
     <ul>
-      <li>الملاحظات اتكتبت بمساعدة الذكاء الاصطناعي، وممكن يكون فيها غلطات أو حاجات ناقصة.</li>
+      <li>الملاحظات والملخصات اتكتبت بمساعدة الذكاء الاصطناعي، وممكن يكون فيها غلطات أو حاجات ناقصة.</li>
       <li>Claude وClaude Code وAgent SDK وMCP بيتغيروا بسرعة. الخيارات وأسماء الحقول والحدود وسلوك الموديلات اللي هنا ممكن تكون قديمة. ارجع للتوثيق الرسمي بتاع Anthropic قبل ما تعتمد على أي تفصيلة.</li>
       <li>المهام 1.1 و2.4 و3.6 متغطية جزئياً بس.</li>
       <li>شكل الامتحان اللي في الصفحة الرئيسية (60 سؤال، 120 دقيقة، 720 من 1000 عشان تنجح) ده حسب كلام ناس امتحنت ومواقع تانية، مش من مصدر رسمي.</li>
@@ -179,7 +197,7 @@ const P = {
     <h2>الاستخدام</h2>
     <p>الدليل ده لجروب المذاكرة بتاعنا. متبيعهوش، ومتقدموش على إنه محتوى رسمي. ولو لقيت غلطة، قول للي ماسك الموقع عشان تتصلح للكل.</p>`,
     nfTitle: "الصفحة مش موجودة",
-    nfBody: `الصفحة اللي بتدوّر عليها مش موجودة. روح <a href="index.html">للرئيسية</a> أو <a href="notes.html">للملاحظات</a> أو <a href="traps.html">لمطبات الامتحان</a>.`,
+    nfBody: `الصفحة اللي بتدوّر عليها مش موجودة. روح <a href="index.html">للرئيسية</a> أو <a href="cheat-tables.html">لجداول المراجعة</a> أو <a href="traps.html">لمطبات الامتحان</a>، أو <a href="notes.html">دوّر في الملاحظات</a>.`,
   },
 };
 
@@ -223,7 +241,7 @@ function site(lang, data, altData, SHEETS) {
   <td><div class="dname"><span class="dot"></span>${d.n} · ${esc(d.title)}</div></td>
   <td><div class="wbar"><span style="width:${d.weight * 4}px"></span><b>${d.weight}%</b></div></td>
   <td dir="ltr">${range(d)}</td><td>${s.notes + s.facts + s.terms}</td><td>${s.traps}</td>
-  <td><div class="links"><a href="notes.html#d${d.n}">${S.linkNotes}</a><a href="traps.html#d${d.n}">${S.linkTraps}</a><a href="cheat-table-${d.n}.html">${S.linkCheat}</a></div></td>
+  <td><div class="links"><a href="cheat-table-${d.n}.html">${S.linkCheat}</a><a href="cheat-table-${d.n}.html#summary">${S.linkSummary}</a><a href="traps.html#d${d.n}">${S.linkTraps}</a></div></td>
 </tr>`;
     })
     .join("");
@@ -237,15 +255,15 @@ function site(lang, data, altData, SHEETS) {
     <h1 dir="ltr">CCAR-F Field Guide</h1>
     <p>${S.homeLead}</p>
     <div class="actions">
-      <a class="btn btn-primary" href="notes.html">${icon("list")}${S.btnNotes}</a>
+      <a class="btn btn-primary" href="cheat-tables.html">${icon("table")}${S.btnCheat}</a>
       <a class="btn" href="traps.html">${icon("alert")}${S.btnTraps}</a>
-      <a class="btn" href="cheat-tables.html">${icon("table")}${S.btnCheat}</a>
+      <a class="btn" href="notes.html">${icon("search")}${S.btnNotes}</a>
     </div>
   </section>
   <div class="entry-grid">
-    <a class="Box entry" href="notes.html"><h2>${icon("list")}${S.entryNotesTitle}</h2><p>${S.entryNotes(T)}</p><div class="stats"><span class="Counter">${S.cNotes(T.notes)}</span><span class="Counter">${S.cFacts(T.facts)}</span><span class="Counter">${S.cTerms(T.terms)}</span></div></a>
+    <a class="Box entry entry-main" href="cheat-tables.html"><h2>${icon("table")}${S.entryCheatTitle}</h2><p>${S.entryCheat}</p><div class="stats"><span class="Counter">${S.cTables}</span><span class="Counter">${S.cSummaries(T.lessons)}</span><span class="Counter">${S.cFacts(T.facts)}</span><span class="Counter">${S.cTerms(T.terms)}</span></div></a>
     <a class="Box entry" href="traps.html"><h2>${icon("alert")}${S.entryTrapsTitle}</h2><p>${S.entryTraps}</p><div class="stats"><span class="Counter">${S.cTraps(T.traps)}</span></div></a>
-    <a class="Box entry" href="cheat-tables.html"><h2>${icon("table")}${S.entryCheatTitle}</h2><p>${S.entryCheat}</p><div class="stats"><span class="Counter">${S.cTables}</span></div></a>
+    <a class="Box entry" href="notes.html"><h2>${icon("search")}${S.entryNotesTitle}</h2><p>${S.entryNotes(T)}</p><div class="stats"><span class="Counter">${S.cNotes(T.notes)}</span><span class="Counter">${S.cFacts(T.facts)}</span><span class="Counter">${S.cTerms(T.terms)}</span></div></a>
   </div>
   <section class="section">
     <h2>${S.domainsH}</h2>
@@ -269,40 +287,68 @@ function site(lang, data, altData, SHEETS) {
           .join("")}</ol></div>`
       )
       .join("");
+    // On phones the search row stays pinned at the top; Filters opens the rest, Sections opens the task list.
     return `<aside class="side" aria-label="Filters">
-  <label class="search">${icon("search")}<span class="sr-only">${S.search}</span><input class="input" id="q" type="search" placeholder="${esc(placeholder)}" autocomplete="off"></label>
-  <div><h2>${S.domainH}</h2><ul class="dlist">
-    <li><button class="dbtn" type="button" data-d="all" aria-pressed="true"><span class="dot all"></span><span><span class="long">${S.allDomains}</span><span class="short">${S.all}</span></span><span class="w">100%</span></button></li>
-    ${data.map(dbtn).join("")}
-  </ul></div>
-  ${controls}
+  <div class="side-bar">
+    <label class="search">${icon("search")}<span class="sr-only">${S.search}</span><input class="input" id="q" type="search" placeholder="${esc(placeholder)}" autocomplete="off" enterkeyhint="search"></label>
+    <button type="button" class="side-btn" data-side-filters aria-expanded="false" aria-controls="side-more-${prefix}">${icon("filter")}<span>${S.filters}</span></button>
+    <button type="button" class="side-btn" data-side-sections aria-haspopup="dialog">${icon("list")}<span>${S.sections}</span></button>
+  </div>
   <p class="count" data-count data-count-tpl="${esc(S.countTpl)}" aria-live="polite"></p>
+  <div class="side-more" id="side-more-${prefix}">
+    <div><h2>${S.domainH}</h2><ul class="dlist">
+      <li><button class="dbtn" type="button" data-d="all" aria-pressed="true"><span class="dot all"></span><span><span class="long">${S.allDomains}</span><span class="short">${S.all}</span></span><span class="w">100%</span></button></li>
+      ${data.map(dbtn).join("")}
+    </ul></div>
+    ${controls}
+  </div>
   <nav class="toc" aria-label="Task statements">${toc}</nav>
 </aside>`;
   };
-  // "View summary" buttons open one shared dialog; data-sum is "d<n>" (whole domain) or "d<n>:<lesson index>".
-  const sumBtn = (key) => `<button type="button" class="sum-btn" data-sum="${key}">${icon("book")}<span>${S.viewSummary}</span></button>`;
+  // Phones and tablets hide the sidebar task list; the Sections button shows a copy of it in this dialog (site.js fills it).
+  const tocDialog = `
+<dialog class="sum-dialog toc-dialog" id="toc-dialog" aria-labelledby="toc-title">
+  <div class="sum-inner">
+    <div class="sum-head"><h2 id="toc-title">${S.sectionsTitle}</h2><button type="button" class="sum-close" data-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
+    <div class="sum-body" id="toc-body"></div>
+  </div>
+</dialog>`;
+  // Summary buttons open one shared dialog; data-sum is "d<n>" (whole domain) or a task code such as "5.1".
+  const sumBtn = (key, label = S.viewSummary) => `<button type="button" class="sum-btn" data-sum="${key}">${icon("book")}<span>${label}</span></button>`;
   const domainHead = (d, what) =>
     `<header class="dom-head"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2><span class="muted">${S.pctExam(d.weight)} · ${what}</span>${sumBtn(`d${d.n}`)}</header>`;
-  const taskHead = (l, d, li) => `<div class="task-head"><span class="code">${esc(l.code)}</span><h3>${md(l.task)}</h3>${sumBtn(`d${d.n}:${li}`)}</div>`;
-  // Summaries in both languages, read by site.js. "<" is escaped so the JSON can't close the script tag.
-  const sumData = Object.fromEntries(
-    data.map((d, di) => {
-      const ad = altData[di];
-      return [`d${d.n}`, {
-        color: d.color,
-        label: S.domainLabel(d.n), title: esc(d.title), intro: md(d.intro || ""),
-        alt: { label: A.domainLabel(d.n), title: esc(ad.title), intro: md(ad.intro || "") },
-        tasks: d.lessons.map((l, li) => ({
-          code: l.code, task: md(l.task), summary: md(l.summary || ""),
-          alt: { task: md(ad.lessons[li].task), summary: md(ad.lessons[li].summary || "") },
-        })),
-      }];
-    })
-  );
-  const sumDialog = (prefix) => `
-<script type="application/json" id="sum-data">${JSON.stringify(sumData).replace(/</g, "\\u003c")}</script>
-<dialog class="sum-dialog" id="sum-dialog" aria-labelledby="sum-title" data-prefix="${prefix}" data-all="${esc(S.sumAll)}" data-alt-all="${esc(A.sumAll)}">
+  const taskHead = (l) => `<div class="task-head"><span class="code">${esc(l.code)}</span><h3>${md(l.task)}</h3>${sumBtn(l.code)}</div>`;
+  // Summary text: paragraphs split on blank lines; **bold** marks a key term. Bold markers are swapped for a
+  // placeholder outside `code` first, so globs like `src/**/*.ts` stay intact and md() leaves the markers alone.
+  const paras = (s) =>
+    String(s || "").split(/\n\s*\n/).filter((p) => p.trim())
+      .map((p) => {
+        const marked = p.trim().split(/(`[^`]+`)/).map((x, i) => (i % 2 ? x : x.replace(/\*\*/g, "\u0001"))).join("");
+        let open = false;
+        return `<p>${md(marked).replace(/\u0001/g, () => ((open = !open) ? "<strong>" : "</strong>"))}</p>`;
+      })
+      .join("");
+  // Summaries in both languages for the given domains, read by site.js. "<" is escaped so the JSON can't close the script tag.
+  const sumData = (list) =>
+    Object.fromEntries(
+      list.map((d) => {
+        const ad = altData[data.indexOf(d)];
+        return [`d${d.n}`, {
+          color: d.color,
+          label: S.domainLabel(d.n), title: esc(d.title), intro: md(d.intro || ""),
+          alt: { label: A.domainLabel(d.n), title: esc(ad.title), intro: md(ad.intro || "") },
+          tasks: d.lessons.map((l, li) => ({
+            code: l.code, task: md(l.task), summary: paras(l.summary),
+            alt: { task: md(ad.lessons[li].task), summary: paras(ad.lessons[li].summary) },
+          })),
+        }];
+      })
+    );
+  // prefix: the anchor prefix of the sections the domain summary links to ("n" notes, "t" traps, "c" cheat cards).
+  // A cheat table page passes its one domain; "#summary" in its URL opens that domain's summary on load.
+  const sumDialog = (prefix, list = data) => `
+<script type="application/json" id="sum-data">${JSON.stringify(sumData(list)).replace(/</g, "\\u003c")}</script>
+<dialog class="sum-dialog" id="sum-dialog" aria-labelledby="sum-title" data-prefix="${prefix}" data-all="${esc(S.sumAll)}" data-alt-all="${esc(A.sumAll)}"${list.length === 1 ? ` data-default="d${list[0].n}"` : ""} ${trxAttrs}>
   <div class="sum-inner">
     <div class="sum-head">
       <div class="sum-titles"><span class="Label" id="sum-label"></span><h2 id="sum-title"></h2></div>
@@ -335,7 +381,7 @@ function site(lang, data, altData, SHEETS) {
             ...(l.terms || []).map((t, i) => nrow(d, "term", [t.term, t.def], [a.terms[i].term, a.terms[i].def])),
           ].join("");
           return `<section class="task" id="${id("n", l.code)}">
-  ${taskHead(l, d, li)}
+  ${taskHead(l)}
   <div class="Box"><div class="tscroll"><table class="gh stack"><thead><tr><th>${S.notesTh[0]}</th><th>${S.notesTh[1]}</th>${trxTh}</tr></thead><tbody>${r}</tbody></table></div></div>
 </section>`;
         })
@@ -352,6 +398,10 @@ ${tasks}
     <button type="button" data-kind="term" aria-pressed="true">${S.tTerms} <span class="Counter">${T.terms}</span></button>
   </div></div>
   ${shortSwitch("toggle short-side")}`;
+  // Ready-made searches under the page title; each fills the search box.
+  const tryChips = ["`stop_reason`", "`tool_choice`", "`CLAUDE.md`", "`PostToolUse`", "`fork_session`", "few-shot"]
+    .map((q) => `<button type="button" class="qchip" data-q="${esc(q.replace(/`/g, ""))}">${md(q)}</button>`)
+    .join("");
   write("notes.html", {
     title: S.notesTitle,
     description: S.notesDesc(T),
@@ -361,12 +411,13 @@ ${tasks}
   <div class="layout" data-filter-page ${trxAttrs}>
     ${sidebar({ prefix: "n", placeholder: S.notesSearch, controls: kindControls })}
     <div style="min-width:0">
-      <div class="pagehead lead-only"><h1>${S.notesTitle}</h1><p>${S.notesLead}</p>${shortSwitch("short-switch")}</div>
+      <div class="pagehead lead-only"><h1>${S.notesTitle}</h1><p>${S.notesLead}</p><div class="qchips"><span>${S.tryH}:</span>${tryChips}</div>${shortSwitch("short-switch")}</div>
       ${notesDomains}
       <p class="empty-all" hidden>${S.notesEmpty}</p>
     </div>
   </div>
   ${sumDialog("n")}
+  ${tocDialog}
 </div>`,
   });
 
@@ -386,7 +437,7 @@ ${tasks}
             ? `<div class="flash tips"><div class="flash-title">${icon("bulb", "oc")}${S.tipsH}</div><ul>${l.exam_tips.map((t) => `<li data-row data-d="${d.n}" data-kind="tip">${md(t)}</li>`).join("")}</ul></div>`
             : "";
           return `<section class="task" id="${id("t", l.code)}">
-  ${taskHead(l, d, li)}
+  ${taskHead(l)}
   <div class="Box"><div class="tscroll"><table class="gh stack traps"><thead><tr>${S.trapsTh.map((h) => `<th>${h}</th>`).join("")}${trxTh}</tr></thead><tbody>${r}</tbody></table></div></div>
   ${tips}
 </section>`;
@@ -405,14 +456,15 @@ ${tasks}
     body: `
 <div class="container">
   <div class="layout" data-filter-page ${trxAttrs}>
-    ${sidebar({ prefix: "t", placeholder: S.trapsSearch, controls: `<label class="toggle"><input type="checkbox" id="quiz"> ${S.quiz}</label>` })}
+    ${sidebar({ prefix: "t", placeholder: S.trapsSearch, controls: `<label class="toggle"><input type="checkbox" data-quiz-toggle> ${S.quiz}</label>` })}
     <div style="min-width:0">
-      <div class="pagehead lead-only"><h1>${S.trapsTitle}</h1><p>${S.trapsLead}</p></div>
+      <div class="pagehead lead-only"><h1>${S.trapsTitle}</h1><p>${S.trapsLead}</p><label class="short-switch"><input type="checkbox" class="switch-input" data-quiz-toggle> <span>${S.quiz}</span></label></div>
       ${trapsDomains}
       <p class="empty-all" hidden>${S.trapsEmpty}</p>
     </div>
   </div>
   ${sumDialog("t")}
+  ${tocDialog}
 </div>`,
   });
 
@@ -425,17 +477,47 @@ ${tasks}
 <div class="container">
   <div class="pagehead"><h1>${S.cheatTitle}</h1><p>${S.cheatLead}</p></div>
   <div class="cs-index">${data
-    .map(
-      (d) => `<a class="Box cs-thumb" style="--c:${d.color}" href="cheat-table-${d.n}.html">
-  <div class="Box-header"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2></div>
-  <div class="Box-body"><ol>${d.lessons.map((l) => `<li><b>${esc(l.code)}</b><span>${md(l.task)}</span></li>`).join("")}</ol></div>
-</a>`
-    )
+    .map((d) => {
+      const s = stats(d);
+      return `<div class="Box cs-thumb" style="--c:${d.color}">
+  <a class="cs-thumb-main" href="cheat-table-${d.n}.html">
+    <div class="Box-header"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2></div>
+    <div class="Box-body"><ol>${d.lessons.map((l) => `<li><b>${esc(l.code)}</b><span>${md(l.task)}</span></li>`).join("")}</ol></div>
+  </a>
+  <div class="cs-thumb-foot">
+    <a class="btn btn-sm" href="cheat-table-${d.n}.html">${icon("table")}${S.openTable}</a>
+    <a class="btn btn-sm" href="cheat-table-${d.n}.html#summary">${icon("book")}${S.sumDomain}</a>
+    <span class="stats"><span class="Counter">${S.cFacts(s.facts)}</span><span class="Counter">${S.cTerms(s.terms)}</span></span>
+  </div>
+</div>`;
+    })
     .join("")}</div>
 </div>`,
   });
-  data.forEach((d) => {
+  // A heading that carries both languages; the translate button of its box swaps them.
+  const dualInline = (html, altHtml) =>
+    `<span class="tx">${html}</span><span class="tx" lang="${altLang}" dir="${altLang === "ar" ? "rtl" : "ltr"}" hidden>${altHtml}</span>`;
+  // Key facts and terms of one task statement, in both languages.
+  const ftItems = (xs = [], axs = [], k, v) =>
+    `<ul class="ft-items">${xs.map((x, i) => `<li>${dual(`<b>${md(x[k])}</b> ${md(x[v])}`, `<b>${md(axs[i][k])}</b> ${md(axs[i][v])}`)}</li>`).join("")}</ul>`;
+  const ftBlock = (l, a) => `<section class="Box ft-block" id="f-${l.code.replace(".", "-")}" data-trx-scope>
+  <header class="ft-h"><span class="n">${esc(l.code)}</span><h3>${dualInline(md(l.task), md(a.task))}</h3><button type="button" class="trx-btn" data-trx aria-pressed="false">${S.trxOff}</button></header>
+  <div class="ft-cols">
+    <div class="ft-col"><h4 class="ft-k fact">${dualInline(S.factsCol, A.factsCol)} <span class="Counter">${(l.facts || []).length}</span></h4>${ftItems(l.facts, a.facts, "item", "detail")}</div>
+    <div class="ft-col"><h4 class="ft-k term">${dualInline(S.termsCol, A.termsCol)} <span class="Counter">${(l.terms || []).length}</span></h4>${ftItems(l.terms, a.terms, "term", "def")}</div>
+  </div>
+</section>`;
+  const sheetNav = (d) =>
+    data.map((o) => `<a class="Label" style="--c:${o.color}" href="cheat-table-${o.n}.html"${o.n === d.n ? ' aria-current="page"' : ""}>${S.domainLabel(o.n)}</a>`).join("");
+  data.forEach((d, di) => {
     const sh = SHEETS[d.n];
+    const cards = sh.cards.join("\n");
+    const facts = d.lessons.map((l, li) => ftBlock(l, altData[di].lessons[li])).join("\n");
+    // The jump bar stays pinned under the header: the domain summary, each task card, facts & terms, comparisons.
+    const jumpTasks = d.lessons
+      .filter((l) => cards.includes(`id="c-${l.code.replace(".", "-")}"`))
+      .map((l) => `<a href="#c-${l.code.replace(".", "-")}" title="${esc(l.task.replace(/`/g, ""))}">${esc(l.code)}</a>`)
+      .join("");
     const compare = (d.comparisons || [])
       .map(
         (c) => `<div><h3>${md(c.title)}</h3><div class="Box"><div class="tscroll"><table class="gh compare"><thead><tr>${c.columns.map((h) => `<th>${md(h)}</th>`).join("")}</tr></thead><tbody>${c.rows
@@ -443,19 +525,41 @@ ${tasks}
           .join("")}</tbody></table></div></div></div>`
       )
       .join("");
+    const decide = (sh.decide || []).length
+      ? `<section class="section" id="decide"><h2>${S.decideH}</h2><p class="section-lead">${S.decideLead}</p>
+  <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th></tr></thead><tbody>${sh.decide
+    .map(([q, a]) => `<tr><td class="q">${md(q)}</td><td class="a">${md(a)}</td></tr>`)
+    .join("")}</tbody></table></div></div></section>`
+      : "";
+    // Facts and terms are extra detail: the last section, closed until its switch is turned on (site.js remembers it).
+    const s = stats(d);
+    const factsSection = `<details class="section ft-section" id="facts" ${trxAttrs}>
+  <summary class="ft-summary"><h2>${S.factsH}</h2><span class="ft-count">${S.ftCount(s.facts, s.terms)}</span><span class="ft-switch"><span class="switch-vis" aria-hidden="true"></span>${S.ftShow}</span></summary>
+  <p class="section-lead">${S.factsLead}</p>
+  <div class="ft-list">${facts}</div>
+</details>`;
     write(`cheat-table-${d.n}.html`, {
       title: S.cheatPageTitle(d),
       description: S.cheatPageDesc(d),
       active: "cheat",
       body: `
-<div class="container" style="--c:${d.color}">
-  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><p>${esc(sh.sub)}</p></header>
-  <div class="cs-grid">${sh.cards.join("\n")}</div>
-  ${compare ? `<section class="section"><h2>${S.compareH}</h2><div class="compare-list">${compare}</div></section>` : ""}
+<div class="container" style="--c:${d.color}" data-sheet>
+  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><p>${esc(sh.sub)}</p>
+    <div class="sheet-nav">${sheetNav(d)}</div>
+  </header>
+  <nav class="jumpbar" aria-label="${esc(S.jumpLabel)}"><div class="jumpbar-in">
+    ${sumBtn(`d${d.n}`, S.sumDomain).replace('class="sum-btn"', 'class="sum-btn jump-sum"')}
+    ${jumpTasks}${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
+  </div></nav>
+  <div class="cs-grid">${cards}</div>
+  ${decide}
+  ${compare ? `<section class="section" id="compare"><h2>${S.compareH}</h2><div class="compare-list">${compare}</div></section>` : ""}
+  ${factsSection}
   <div class="sheet-foot">
-    <div class="sheet-nav">${data.map((o) => `<a class="Label" style="--c:${o.color}" href="cheat-table-${o.n}.html"${o.n === d.n ? ' aria-current="page"' : ""}>${S.domainLabel(o.n)}</a>`).join("")}</div>
+    <div class="sheet-nav">${sheetNav(d)}</div>
     <div class="links"><a href="notes.html#d${d.n}">${S.domNotes(d.n)}</a><a href="traps.html#d${d.n}">${S.domTraps(d.n)}</a></div>
   </div>
+  ${sumDialog("c", [d])}
 </div>`,
     });
   });
@@ -496,8 +600,10 @@ for (const lang of LANGS) {
 }
 
 /* ---------------------------------------------------------------- Report + zip */
+// Dot entries (.git, .gitignore, editor folders) are never published.
+const published = (dir) => readdirSync(dir).filter((f) => !f.startsWith("."));
 const files = [];
-const walk = (dir) => readdirSync(dir).forEach((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : files.push(join(dir, f))));
+const walk = (dir) => published(dir).forEach((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : files.push(join(dir, f))));
 walk(ROOT);
 const kb = Math.round(files.reduce((a, f) => a + statSync(f).size, 0) / 1024);
 console.log(`website/: ${files.length} files, ${kb} KB, index.html at the root.`);
@@ -505,7 +611,7 @@ console.log(`website/: ${files.length} files, ${kb} KB, index.html at the root.`
 // Tries the zip-capable bsdtar (Windows 10+ System32, macOS), then the `zip` command (Linux).
 // If none works, upload the website/ folder instead — Cloudflare accepts a folder too.
 // Top-level names (not ".") so entries read "index.html", not "./index.html".
-const top = readdirSync(ROOT);
+const top = published(ROOT);
 const zippers = [
   ...(process.platform === "win32" ? [[join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe"), ["-a", "-c", "-f", ZIP, "-C", ROOT, ...top], {}]] : []),
   ["tar", ["-a", "-c", "-f", ZIP, "-C", ROOT, ...top], {}],

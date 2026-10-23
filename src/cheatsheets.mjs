@@ -1,16 +1,18 @@
 // The five one-page cheat tables, rebuilt from the quick-reference images as HTML/CSS.
 // Corrections vs the images: Domain 4 is "Prompt Engineering & Structured Output" (image said
 // "Build Effective Agents"), Domain 5 weighs 15% (image said 18%), and tool_choice "none" is added.
-// The images' "exam trigger → what to choose" tables are deliberately left out.
+// The images' "exam trigger → what to choose" tables are left out; the decision tables at the end of this
+// file (symptom → usual answer, built with the group's study guide) cover that ground instead.
 import { md, esc, icon } from "./lib.mjs";
 
 const C = { blue: "var(--d1)", teal: "var(--d2)", amber: "var(--d3)", rose: "var(--d4)", violet: "var(--d5)", green: "var(--success)", red: "var(--danger)" };
 const col = (c) => C[c] || c;
 
 // A card is a bordered box; its number takes the sheet's domain colour (set on the grid).
+// Task cards get an anchor (#c-5-1, used by the page's jump bar) and a button that opens that task's summary.
 const card = ({ n, title, sub, w = 4 }, ...kids) =>
-  `<section class="Box cs-card${w === 4 ? "" : " w" + w}">
-  <header class="cs-h"><span class="n">${n ? esc(n) : ""}</span><h2>${md(title)}</h2>${sub ? `<p>${md(sub)}</p>` : ""}</header>
+  `<section class="Box cs-card${w === 4 ? "" : " w" + w}"${n ? ` id="c-${n.replace(".", "-")}"` : ""}>
+  <header class="cs-h"><span class="n">${n ? esc(n) : ""}</span><h2>${md(title)}</h2>${n ? `<button type="button" class="sum-mini" data-sum="${esc(n)}" title="Summary of ${esc(n)}" aria-label="Summary of ${esc(n)}">${icon("book")}</button>` : ""}${sub ? `<p>${md(sub)}</p>` : ""}</header>
   <div class="cs-body">${kids.join("\n")}</div>
 </section>`;
 
@@ -573,10 +575,122 @@ const d5 = [
   ),
 ];
 
+/* Decision tables: the usual answer for each symptom a question describes, one table per domain
+   ([symptom, answer] rows). Built with the study guide the group shared; reworded, and checked against the notes. */
+const decide = {
+  1: [
+    ["The loop never stops, or stops too early", 'Drive the loop with `stop_reason`: continue on `"tool_use"`, stop on `"end_turn"`'],
+    ["The agent skips a mandatory earlier step", "A prerequisite gate in code that blocks the tool call, not a stronger prompt"],
+    ["A policy limit (such as a refund cap) is sometimes exceeded", "A `PreToolUse` hook that intercepts the call and blocks or redirects it"],
+    ["Tool results come back in mixed formats", "A `PostToolUse` hook that normalizes them before the model sees them"],
+    ["A subagent's output is generic or has no sources", "Put the earlier findings and their metadata in the subagent's prompt"],
+    ["The coordinator can't spawn subagents", "Add `Task` to the coordinator's `allowedTools`"],
+    ["Subagents run one after another instead of in parallel", "Several `Task` calls in one coordinator response"],
+    ["Every subagent succeeded, but whole subtopics are missing", "The coordinator's decomposition is too narrow"],
+    ["A large multi-file review is shallow and contradicts itself", "One pass per file, plus a separate cross-file integration pass"],
+    ["Compare two approaches from the same starting analysis", "`fork_session`"],
+    ["Resuming after files have changed", "Resume and name the changed files; start fresh with a summary if the old results are stale"],
+    ["Handing off to a human who can't see the transcript", "A structured handoff summary: customer ID, root cause, amount, recommended action"],
+  ],
+  2: [
+    ["The agent picks the wrong one of two similar tools", "Expand and differentiate the tool descriptions (the first step)"],
+    ["Descriptions are good, but selection is still wrong", "Look for keyword-triggered instructions in the system prompt"],
+    ["One tool does several unrelated things", "Split it into purpose-specific tools with defined inputs and outputs"],
+    ["The agent keeps retrying a request that breaks a policy", "Return `errorCategory: business`, `isRetryable: false` and a customer-friendly explanation"],
+    ["The coordinator can't tell how to recover from a subagent failure", "Structured error context: failure type, what was tried, partial results, alternatives"],
+    ["'No matching orders' is treated as a failure", "Tell an access failure apart from a valid empty result"],
+    ["An agent with 18 tools keeps misusing them", "Scope tools by role (about 4 to 5 each), plus a few cross-role tools"],
+    ["The synthesis agent sometimes needs to check a fact", "A narrow `verify_fact` tool for simple checks; the coordinator for the rest"],
+    ["You must get a tool call, not a text reply", '`tool_choice: "any"`'],
+    ["One specific tool must run first", '`tool_choice: {"type": "tool", "name": "..."}`'],
+    ["The team needs a shared MCP server", "Project scope: `.mcp.json` in the repo, with secrets as `${ENV_VAR}`"],
+    ["A personal or experimental MCP server", "User scope (or local, for one repo) in `~/.claude.json`, not `.mcp.json`"],
+    ["The agent uses Grep instead of your better MCP tool", "Improve the MCP tool's description"],
+    ["The agent spends turns working out what data exists", "Expose a content catalog as an MCP resource"],
+    ["A standard integration such as Jira", "Use the existing community MCP server"],
+    ["Find where a function is called", "Grep"],
+    ["Find all `*.test.tsx` files", "Glob"],
+    ["Edit can't find unique text to anchor on", "Read the file, then Write it"],
+  ],
+  3: [
+    ["Teammates don't get your instructions", "They're in `~/.claude/CLAUDE.md`; move them into the project"],
+    ["CLAUDE.md has grown into one huge file", "Split it into `.claude/rules/` topic files, or `@import` the pieces"],
+    ["Which memory files are loaded? Behaviour differs between sessions?", "`/memory` (the exam's answer; current Claude Code also shows this in `/context`)"],
+    ["A command every developer should get on clone", "`.claude/commands/` in the repo"],
+    ["A skill's output floods the main conversation", "`context: fork` in the skill's frontmatter"],
+    ["A skill must not be able to run destructive commands", "`allowed-tools` in the frontmatter (the exam's answer; current Claude Code treats it as pre-approval and uses `disallowed-tools` to remove tools)"],
+    ["A skill is invoked without its arguments", "`argument-hint`"],
+    ["Standards that always apply", "CLAUDE.md"],
+    ["A workflow needed only for a specific task", "A skill, loaded on demand"],
+    ["Conventions for one file type spread across directories", "A `.claude/rules/` file with a glob in `paths`"],
+    ["Conventions for a single directory", "A CLAUDE.md in that subdirectory"],
+    ["An architectural change across many files", "Plan mode"],
+    ["A single-file fix with a clear stack trace", "Direct execution"],
+    ["Discovery output is using up the context window", "The Explore subagent"],
+    ["A prose spec keeps being misread", "2 to 3 concrete input/output examples"],
+    ["An unfamiliar domain with unknown risks", "The interview pattern: let Claude ask questions first"],
+    ["Several fixes that affect each other", "One detailed message covering them all"],
+    ["Several independent fixes", "One at a time"],
+    ["A CI job hangs waiting for input", "`-p` (`--print`)"],
+    ["You need parseable findings for PR comments", "`--output-format json` with `--json-schema`"],
+    ["CI reviews ignore the project's standards", "Put the standards in CLAUDE.md"],
+    ["A re-review posts duplicate comments", "Include the earlier findings; report only new or unfixed issues"],
+    ["Generated tests duplicate existing ones", "Include the existing test files"],
+  ],
+  4: [
+    ["Vague review instructions give inconsistent findings", "Explicit criteria: which issues to report and which to skip"],
+    ["An option says 'tell it to be conservative'", "Wrong: general caution doesn't raise precision; use specific criteria"],
+    ["One category has many false positives and trust is dropping", "Turn that category off for now and fix its prompt"],
+    ["Severity labels are inconsistent", "Define each severity level with concrete code examples"],
+    ["Criteria are clear, but ambiguous cases go wrong", "2 to 4 few-shot examples that show the reasoning"],
+    ["The output format varies between runs", "Few-shot examples showing the exact format"],
+    ["Extraction fails on documents with different layouts", "Few-shot examples covering those layouts"],
+    ["Malformed JSON breaks the parser", "`tool_use` with a JSON schema"],
+    ["Valid JSON, but the totals don't add up", "Semantic validation (`calculated_total` vs `stated_total`), not a stricter schema"],
+    ["The model invents values for missing data", "Make those fields optional / nullable"],
+    ["A value fits no enum category", '`"other"` plus a detail string; `"unclear"` for ambiguous cases'],
+    ["Document type unknown, several schemas", '`tool_choice: "any"`'],
+    ["One extraction must run before enrichment", "Force that tool with `tool_choice`"],
+    ["Validation failed: retry?", "Yes for format or structure errors; no if the information isn't in the source"],
+    ["Retries keep producing the same error", "Send the specific validation error back with the retry"],
+    ["You need to know where false positives come from", "A `detected_pattern` field on each finding"],
+    ["A pre-merge check a developer is waiting for", "The synchronous API"],
+    ["Overnight or weekly analysis", "Message Batches API: 50% cheaper, up to 24 hours, no latency guarantee"],
+    ["Part of a batch failed", "Resubmit only the failures by `custom_id`, splitting oversized documents"],
+    ["Reviewing code the same session wrote", "An independent review instance"],
+    ["A 14-file PR review is shallow and contradictory", "One pass per file, plus a cross-file integration pass"],
+    ["Too few human reviewers", "Field-level confidence, calibrated on a labeled set, to prioritize their work"],
+  ],
+  5: [
+    ["Amounts, dates and order numbers turn vague in a long chat", "A persistent case-facts block, outside the summarized history"],
+    ["Findings in the middle of a long input get dropped", "A key-findings summary at the top; clear section headers"],
+    ["An order lookup returns 40+ fields and 5 matter", "Trim tool output before it enters the context"],
+    ["A downstream agent has little context to spare", "Upstream agents return structured facts and citations, not prose"],
+    ["The customer says 'get me a human'", "Escalate at once, without investigating first"],
+    ["The customer is angry but the issue is simple", "Acknowledge it and offer to resolve; escalate if they ask again"],
+    ["Policy says nothing about the request", "Escalate: it's a policy gap"],
+    ["`get_customer` returns three matches", "Ask for another identifier"],
+    ["Someone proposes escalating on sentiment or confidence", "Wrong: explicit criteria plus few-shot examples"],
+    ["A subagent times out", "Structured error context: type, attempted query, partial results, alternatives"],
+    ["A subagent returns empty results as a success", "Anti-pattern: silently suppressing the error"],
+    ["One subagent fails and the whole workflow stops", "Anti-pattern: carry on with the partial results instead"],
+    ["The report rests on partial coverage", "Coverage annotations separating supported findings from gaps"],
+    ["Late in a session the agent cites 'typical patterns'", "Context degradation: scratchpad files"],
+    ["Exploration output is filling the context window", "Delegate to subagents; `/compact`"],
+    ["A long exploration needs crash recovery", "Saved agent state plus a manifest the coordinator loads on resume"],
+    ["97% accuracy, and you want less human review", "Check accuracy per document type and field first"],
+    ["You still need to catch errors among high-confidence results", "Stratified random sampling of high-confidence extractions"],
+    ["Not enough human reviewers", "Route by calibrated field-level confidence"],
+    ["Citations disappear after synthesis", "Claim-source mappings kept through every step"],
+    ["Two credible sources disagree", "Report both with their sources; don't pick one"],
+    ["Figures look contradictory", "Require publication or collection dates"],
+  ],
+};
+
 export const SHEETS = {
-  1: { sub: "Loops, coordinators, subagents, hooks, decomposition and sessions.", cards: d1 },
-  2: { sub: "Tool descriptions, structured errors, tool scoping, MCP servers and built-in tools.", cards: d2 },
-  3: { sub: "Configure Claude Code for productive, consistent and scalable development workflows.", cards: d3 },
-  4: { sub: "Make Claude's output accurate, consistent, machine-readable and production-ready.", cards: d4 },
-  5: { sub: "Keep the right information, handle uncertainty and build reliable agents.", cards: d5 },
+  1: { sub: "Loops, coordinators, subagents, hooks, decomposition and sessions.", cards: d1, decide: decide[1] },
+  2: { sub: "Tool descriptions, structured errors, tool scoping, MCP servers and built-in tools.", cards: d2, decide: decide[2] },
+  3: { sub: "Configure Claude Code for productive, consistent and scalable development workflows.", cards: d3, decide: decide[3] },
+  4: { sub: "Make Claude's output accurate, consistent, machine-readable and production-ready.", cards: d4, decide: decide[4] },
+  5: { sub: "Keep the right information, handle uncertainty and build reliable agents.", cards: d5, decide: decide[5] },
 };
