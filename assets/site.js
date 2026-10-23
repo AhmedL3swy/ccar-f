@@ -13,8 +13,14 @@
     set: function (k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } }
   };
   var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var showModal = function (d) { if (typeof d.showModal === "function") { if (!d.open) d.showModal(); } else { d.setAttribute("open", ""); } };
-  var closeModal = function (d) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); };
+  // While a dialog is open the page behind it is locked (html.modal-open), so scrolling only moves the dialog.
+  var unlockIfClosed = function () { if (!$("dialog[open]")) root.classList.remove("modal-open"); };
+  var showModal = function (d) {
+    if (typeof d.showModal === "function") { if (!d.open) d.showModal(); } else { d.setAttribute("open", ""); }
+    root.classList.add("modal-open");
+    if (!d._unlock) { d._unlock = true; d.addEventListener("close", unlockIfClosed); } // Escape closes without our code
+  };
+  var closeModal = function (d) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); unlockIfClosed(); };
 
   /* ---------- Theme toggle ---------- */
   function effectiveTheme() {
