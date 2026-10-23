@@ -295,13 +295,13 @@ tr[data-kind="concept"] { background: color-mix(in srgb, var(--accent) 6%, var(-
 table.traps td { width: 33.3%; }
 table.traps td.trapcol { font-weight: 600; }
 table.traps td.whycol { color: var(--fg-muted); }
-.quiz table.traps td.whycol, .quiz table.traps td.fixcol { cursor: pointer; position: relative; }
-.quiz table.traps tr:not(.revealed) td.whycol > *, .quiz table.traps tr:not(.revealed) td.fixcol > * { visibility: hidden; }
-.quiz table.traps tr:not(.revealed) td.whycol::after, .quiz table.traps tr:not(.revealed) td.fixcol::after {
+.quiz table.traps td.trapcol, .quiz table.traps td.whycol, .quiz table.traps td.fixcol { cursor: pointer; position: relative; }
+.quiz table.traps td.whycol:not(.revealed) > *, .quiz table.traps td.fixcol:not(.revealed) > * { visibility: hidden; }
+.quiz table.traps td.whycol:not(.revealed)::after, .quiz table.traps td.fixcol:not(.revealed)::after {
   content: "Click to reveal"; position: absolute; inset: 6px; display: grid; place-items: center; border-radius: var(--radius);
   border: 1px dashed var(--border); color: var(--fg-muted); font-size: 12px; background: var(--bg-subtle);
 }
-.quiz table.traps tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.quiz table.traps tr:focus-visible, .quiz table.traps td:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Phones: tables become stacked rows */
 @media (max-width: 700px) {
@@ -314,8 +314,8 @@ table.traps td.whycol { color: var(--fg-muted); }
   table.traps td.whycol::before, table.traps td.fixcol::before { display: block; font-size: 12px; font-weight: 600; margin-top: 6px; }
   table.traps td.whycol::before { content: "Why it's wrong"; color: var(--danger); }
   table.traps td.fixcol::before { content: "What's actually true"; color: var(--success); }
-  .quiz table.traps tr:not(.revealed) td.whycol, .quiz table.traps tr:not(.revealed) td.fixcol { min-height: 64px; }
-  .quiz table.traps tr:not(.revealed) td.whycol::after, .quiz table.traps tr:not(.revealed) td.fixcol::after { inset: 24px 0 0; content: "Tap to reveal"; }
+  .quiz table.traps td.whycol:not(.revealed), .quiz table.traps td.fixcol:not(.revealed) { min-height: 64px; }
+  .quiz table.traps td.whycol:not(.revealed)::after, .quiz table.traps td.fixcol:not(.revealed)::after { inset: 24px 0 0; content: "Tap to reveal"; }
 }
 
 /* ---------- Cheat tables ---------- */
@@ -458,13 +458,13 @@ html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3 { line-height: 1.4; }
 html[lang="ar"] .home-intro h1, html[lang="ar"] .brand { letter-spacing: 0; }
 [dir="rtl"] .flow .to { display: inline-block; transform: scaleX(-1); }
 [dir="rtl"] .search svg { translate: 0 -50%; }
-:lang(ar) .quiz table.traps tr:not(.revealed) td.whycol::after,
-:lang(ar) .quiz table.traps tr:not(.revealed) td.fixcol::after { content: "دوس عشان تشوف"; font-family: var(--font); }
+:lang(ar) .quiz table.traps td.whycol:not(.revealed)::after,
+:lang(ar) .quiz table.traps td.fixcol:not(.revealed)::after { content: "دوس عشان تشوف"; font-family: var(--font); }
 @media (max-width: 700px) {
   :lang(ar) table.traps td.whycol::before { content: "ليه غلط"; }
   :lang(ar) table.traps td.fixcol::before { content: "الصح إيه"; }
-  :lang(ar) .quiz table.traps tr:not(.revealed) td.whycol::after,
-  :lang(ar) .quiz table.traps tr:not(.revealed) td.fixcol::after { content: "دوس عشان تشوف"; }
+  :lang(ar) .quiz table.traps td.whycol:not(.revealed)::after,
+  :lang(ar) .quiz table.traps td.fixcol:not(.revealed)::after { content: "دوس عشان تشوف"; }
 }
 
 /* ---------- Per-row translate ---------- */

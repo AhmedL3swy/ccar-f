@@ -254,23 +254,37 @@
     $$(".tx", row).forEach(function (t) { t.hidden = !t.hidden; });
   });
 
-  /* ---------- Quiz mode (traps) ---------- */
+  /* ---------- Quiz mode (traps) ----------
+     "Why it's wrong" and "What's actually true" reveal separately, so you can check one without seeing the other.
+     The trap cell (or Enter on the row) reveals or hides both at once. */
   var quiz = $("#quiz");
   if (quiz) {
+    var answerCells = $$("table.traps td.whycol, table.traps td.fixcol", page);
     var setQuiz = function (on) {
       page.classList.toggle("quiz", on);
-      $$("tr.revealed", page).forEach(function (r) { r.classList.remove("revealed"); });
+      answerCells.forEach(function (c) {
+        c.classList.remove("revealed");
+        if (on) c.setAttribute("tabindex", "0"); else c.removeAttribute("tabindex");
+      });
       store.set("ccarf-quiz", on ? "1" : "0");
+    };
+    var reveal = function (row, cell) {
+      if (cell) { cell.classList.toggle("revealed"); return; }
+      var cells = $$("td.whycol, td.fixcol", row);
+      var show = cells.some(function (c) { return !c.classList.contains("revealed"); });
+      cells.forEach(function (c) { c.classList.toggle("revealed", show); });
     };
     quiz.addEventListener("change", function () { setQuiz(quiz.checked); });
     page.addEventListener("click", function (e) {
       if (!page.classList.contains("quiz") || e.target.closest("[data-trx]")) return;
       var row = e.target.closest("table.traps tbody tr");
-      if (row) row.classList.toggle("revealed");
+      if (row) reveal(row, e.target.closest("td.whycol, td.fixcol"));
     });
     page.addEventListener("keydown", function (e) {
-      if (!page.classList.contains("quiz")) return;
-      if ((e.key === "Enter" || e.key === " ") && e.target.matches("table.traps tbody tr")) { e.preventDefault(); e.target.classList.toggle("revealed"); }
+      if (!page.classList.contains("quiz") || (e.key !== "Enter" && e.key !== " ")) return;
+      var t = e.target;
+      if (t.matches("table.traps tbody tr")) { e.preventDefault(); reveal(t, null); }
+      else if (t.matches("table.traps td.whycol, table.traps td.fixcol")) { e.preventDefault(); reveal(t.closest("tr"), t); }
     });
     if (store.get("ccarf-quiz") === "1") { quiz.checked = true; setQuiz(true); }
   }
