@@ -1,0 +1,1150 @@
+{
+  "domain": 5,
+  "title": "Context Management & Reliability",
+  "weight": 15,
+  "intro": "This domain covers keeping long-running agent systems accurate and trustworthy: managing context, knowing when to hand a case to a human, passing errors along clearly, calibrating confidence and tying every claim to its source.",
+  "lessons": [
+    {
+      "code": "5.1",
+      "task": "Manage conversation context to preserve critical information across long interactions",
+      "summary": "This lesson is about keeping critical facts intact as a conversation grows long. The API remembers nothing between calls, and the model gets less precise as context fills up, so what you include and where you place it matters more than window size. It covers lossy summaries, a pinned case-facts block, trimming tool output and the lost-in-the-middle effect, all common exam scenarios.",
+      "key_concept": {
+        "term": "Context rot",
+        "definition": "The longer the input or conversation grows, the less accurately the model retrieves and applies any single part of it, which is why a bigger window on its own solves nothing. Which content goes in, in what format and where it sits is just as important as the size of the available space.",
+        "short": "More text means worse recall, so what you put in matters more than window size."
+      },
+      "notes": [
+        {
+          "topic": "Stateless Messages API",
+          "note": "The API remembers nothing between requests; the application must resend every user message, assistant reply and tool result, and any turn left out simply does not exist for the model.",
+          "short": "The API remembers nothing, so your app must send the whole conversation every time."
+        },
+        {
+          "topic": "What fills the window",
+          "note": "System prompt, tool definitions and all messages (including tool results, images and documents) count toward context, and each response becomes input for the next turn, so anything added once is paid for on every later turn.",
+          "short": "Prompts, tool definitions and all messages fill the window, and you pay for them every turn."
+        },
+        {
+          "topic": "Curation, not capacity",
+          "note": "Running out of room is not the only risk: accuracy and recall fall as tokens accumulate, so decide what must survive verbatim, what can be trimmed, and where each item sits.",
+          "short": "More tokens lower accuracy, so choose what to keep exactly, what to cut, and where."
+        },
+        {
+          "topic": "Summarization is lossy",
+          "note": "Server-side compaction and SDK client-side compaction both replace older turns with a summary; each pass condenses the previous one, so an exact refund amount and deadline can degrade into 'a refund soon'.",
+          "short": "Each summary squeezes the last one, so exact numbers and dates slowly turn vague."
+        },
+        {
+          "topic": "Tweaks that don't help",
+          "note": "Summarizing more often re-condenses the oldest facts more times, a bigger window with a later threshold just means reasoning over a long degrading context for longer, and asking the customer to repeat details pushes the problem onto them.",
+          "short": "Summarizing more often, a bigger window, or making the customer repeat details won't fix it."
+        },
+        {
+          "topic": "Case-facts block",
+          "note": "Extract the exact transaction details (order numbers, amounts, dates, statuses and any deadline the customer gave) into a structured block; every prompt includes it, and it never sits inside the summarized history. Summarization covers the story while the block preserves precise values.",
+          "short": "Keep exact order details in a separate block added to every prompt, never summarized."
+        },
+        {
+          "topic": "Beyond Context to Preserve",
+          "note": "The SDK's built-in summary prompt already ends with a 'Context to Preserve' section asking for domain details and promises, but a case-facts block removes those facts from summarization entirely so they cannot be paraphrased.",
+          "short": "The SDK summary tries to keep key details, but a facts block keeps them fully safe."
+        },
+        {
+          "topic": "One record per issue",
+          "note": "When one conversation covers several issues (for example a billing dispute and an outage), keep a separate structured record per issue with its identifier, amount or value, status and timestamps so 'the amount' resolves to the right case.",
+          "short": "When a chat has several issues, keep one separate record for each issue."
+        },
+        {
+          "topic": "Trim fields at entry",
+          "note": "Tool result size has little to do with relevance; parse each result in code and pass only the fields the task needs (about 5 of 40+ order fields), using an interception point such as a PostToolUse hook when you don't own the tool.",
+          "short": "Keep only the few fields the task needs from each tool result, using code or a hook."
+        },
+        {
+          "topic": "Bad trimming shortcuts",
+          "note": "Character truncation keeps whatever comes first and may cut the field you need, a second model summarizing the payload reintroduces summarization blur at extra cost, and caching full responses saves calls without shrinking context.",
+          "short": "Cutting by length, summarizing with a second model, or caching all fail to trim context well."
+        },
+        {
+          "topic": "Clearing stale tool results",
+          "note": "Server-side context editing with `clear_tool_uses_20250919` replaces the oldest tool results with placeholder text after the context crosses a threshold. This happens on the server before Claude ever sees the prompt, and the full history remains on the client. Clear results that are stale; trim the fresh ones.",
+          "short": "`clear_tool_uses_20250919` swaps old tool results for placeholders on the server; clear old results, trim new ones."
+        },
+        {
+          "topic": "Lost in the middle",
+          "note": "Facts at the very start or end of a long input are used most reliably; in a 2023 study accuracy fell by more than 30% when the key fact sat in the middle, so concatenated subagent reports leave the middle ones exposed.",
+          "short": "Models use facts at the start or end best; facts in the middle get missed."
+        },
+        {
+          "topic": "Structuring aggregated input",
+          "note": "Begin the combined input with a key-findings summary of one or two lines per source, then put every detailed section under a clear Markdown header or XML tag, with each document's content and metadata enclosed in a separate set of tags.",
+          "short": "Open merged input with brief key points, then give each source's details a separate tag."
+        },
+        {
+          "topic": "Upstream output shape",
+          "note": "Subagents should return distilled structured data (key facts, citations, relevance scores), often 1,000 to 2,000 tokens, with source location, date and methodology on each finding, not prose plus their reasoning chain; when output is very large, the subagent writes it to an external store and hands back only a lightweight reference.",
+          "short": "Subagents should return short structured facts with sources; save very large output elsewhere and return a link."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Once the first turn is done, the request only needs the latest user message, since the model keeps track of what was said before.",
+          "why": "The Messages API is stateless, so the model only knows what is in the current request; an order number given in turn 3 is gone unless turn 3 is resent.",
+          "fix": "Send the complete conversation (user messages, assistant replies and tool results) on every request, and control its size by curating content, not by omitting turns."
+        },
+        {
+          "trap": "When summaries drop amounts and dates, moving to a bigger context window solves it, since the first summarization pass can be pushed much further out.",
+          "why": "It only delays the first lossy pass; the summaries still blur specifics when they run, and in the meantime the agent works from a long context whose quality is degrading.",
+          "fix": "Keep summarizing but carry exact transactional facts in a separate case-facts block that is never summarized."
+        },
+        {
+          "trap": "Cutting every tool result down to 1,000 characters from the start, or passing it through a second model for a summary, is just as good a trim as selecting fields.",
+          "why": "Truncation keeps whatever happens to come first (such as carrier metadata) and can drop the deadline entirely, while a summarizing call adds cost and brings back summarization blur.",
+          "fix": "Parse each result in code and keep only the specific fields the task needs before it enters history."
+        },
+        {
+          "trap": "When the synthesizer overlooks a section in the middle of the input, relocating that section to the end solves the issue.",
+          "why": "It rescues one section but pushes another into the weak middle position; the input's structure is unchanged.",
+          "fix": "Put a brief key-findings summary of all sections at the top of the input, and mark every detailed section with a separate header or XML tag."
+        }
+      ],
+      "exam_tips": [],
+      "facts": [
+        {
+          "item": "`clear_tool_uses_20250919`",
+          "detail": "Context-editing strategy that replaces the oldest tool results with placeholder text once context passes a threshold, while the client keeps the full history."
+        },
+        {
+          "item": "`context-management-2025-06-27`",
+          "detail": "Beta flag passed in `betas` in the lesson's example to enable context editing."
+        },
+        {
+          "item": "`context_management={\"edits\": [...]}`",
+          "detail": "Request parameter where context-editing strategies such as `{\"type\": \"clear_tool_uses_20250919\"}` are listed."
+        },
+        {
+          "item": "`web_search_20250305`",
+          "detail": "Web search tool type used in the lesson's context-editing example request."
+        },
+        {
+          "item": "Context to Preserve",
+          "detail": "Final section of the SDK's built-in summary prompt, asking for domain-specific details and promises made to the user."
+        },
+        {
+          "item": "More than 30%",
+          "detail": "Accuracy drop reported in a 2023 study when a key fact was placed in the middle of a long context instead of at the start or end."
+        },
+        {
+          "item": "1,000 to 2,000 tokens",
+          "detail": "Typical size of the distilled summary a subagent returns after using far more tokens exploring."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Context rot",
+          "def": "The decline in a model's accuracy and recall over its context as the token count grows."
+        },
+        {
+          "term": "Progressive summarization",
+          "def": "Repeatedly condensing older turns (and earlier summaries) into a running summary, which loses precision each pass."
+        },
+        {
+          "term": "Case-facts block",
+          "def": "A structured record holding exact transactional facts; it travels with each prompt and stays separate from the summarized history."
+        },
+        {
+          "term": "Structured note-taking",
+          "def": "An agent persisting notes outside the context window and pulling them back in when needed."
+        },
+        {
+          "term": "Context editing (tool result clearing)",
+          "def": "A server-side mechanism that replaces old tool results with placeholders before the prompt reaches Claude."
+        },
+        {
+          "term": "Lost-in-the-middle effect",
+          "def": "The tendency for information placed in the middle of a long input to be used less than information at its start or end."
+        }
+      ]
+    },
+    {
+      "code": "5.2",
+      "task": "Design effective escalation and ambiguity resolution patterns",
+      "summary": "This lesson is about when a support agent should hand a case to a human and how it deals with ambiguity. Only three triggers count: the customer explicitly wants a human, the policy does not clearly cover the situation, or the agent is stuck. The exam tests separating these from look-alikes like anger, complexity or self-rated confidence, and asking rather than guessing when a lookup returns several matches.",
+      "key_concept": {
+        "term": "Escalation trigger",
+        "definition": "An observable condition in the conversation that routes the case to a human. Only three exist: the customer explicitly requests a person, the request falls where policy says nothing or is unclear, or the agent is unable to make meaningful progress. Tone, sentiment and how difficult the case seems to the agent are not triggers.",
+        "short": "Only three conditions send a case to a human; tone and difficulty never do."
+      },
+      "notes": [
+        {
+          "topic": "Two-sided escalation accuracy",
+          "note": "Escalation accuracy counts both errors: cases that needed a human but stayed with the agent, and cases handed off that did not need to be.",
+          "short": "Escalation accuracy counts both mistakes: missed handoffs and handoffs that were not needed."
+        },
+        {
+          "topic": "The three triggers",
+          "note": "Hand off in three cases: the customer explicitly requests a person; the written policy either does not address this specific request or addresses it ambiguously; or the agent has exhausted the reasonable paths and the case is still stuck.",
+          "short": "Hand off if the customer asks for a person, policy is unclear or silent, or progress stops."
+        },
+        {
+          "topic": "Complexity is not a trigger",
+          "note": "The test is whether a written rule covers the request, not how hard it is: a complicated refund fully covered by policy stays with the agent, while a simple request no rule addresses goes to a human.",
+          "short": "What matters is whether a rule covers the request, not how hard the case is."
+        },
+        {
+          "topic": "Explicit request means now",
+          "note": "When a customer asks for a person, the agent hands off without a quick fix, diagnostic questions or pointing out the issue is easy, even for a two-turn password reset; investigating first overrides a stated preference.",
+          "short": "If the customer asks for a person, hand off right away, with no fixes first."
+        },
+        {
+          "topic": "Frustration without a request",
+          "note": "When the agent can handle the issue and nobody asked for a human, it recognizes the customer's frustration, fixes the problem right away, and mentions a human as an available option, not as a step the customer must confirm.",
+          "short": "Upset but no request? Fix the problem fast and just mention a human is available."
+        },
+        {
+          "topic": "Reiteration becomes explicit",
+          "note": "The agent offers once. Should the customer then say they want a person, or repeat the request later, that counts as an explicit request, and the handoff happens with no pushback. What the customer says they prefer decides, never their mood.",
+          "short": "Offer a human once; if the customer then asks or asks again, hand off without arguing."
+        },
+        {
+          "topic": "Policy silence",
+          "note": "When policy neither allows nor forbids a request (own-site price drops covered, competitor matches not mentioned), declining invents a prohibition and approving invents a permission.",
+          "short": "If policy neither allows nor forbids something, saying yes or no both invent a rule."
+        },
+        {
+          "topic": "Verifying is not authorizing",
+          "note": "Checking a competitor screenshot confirms a fact but does not give the agent authority to grant the exception; refer it to a supervisor or the policy-owning team and tell the customer someone who can decide is reviewing it.",
+          "short": "Checking a fact is not permission to grant an exception; send it to someone who decides."
+        },
+        {
+          "topic": "Authority ends with policy",
+          "note": "The same referral applies to goodwill credits, return-window exceptions and unmentioned discount combinations: the agent's authority stops where written policy stops.",
+          "short": "The agent's power ends where the written policy ends, including credits and exceptions."
+        },
+        {
+          "topic": "Sentiment misroutes cases",
+          "note": "Routing on negative sentiment escalates angry customers with simple covered requests and keeps calm customers whose requests no policy covers; track sentiment as an outcome measure (better at the end than the start) instead.",
+          "short": "Routing by mood sends the wrong cases up; use mood only to measure results."
+        },
+        {
+          "topic": "Self-rated confidence",
+          "note": "When the model rates its own confidence, that raw number has never been compared with actual accuracy; it may come out high for a misread policy gap and low for a routine case with unusual phrasing. Calibrated scores (lesson 5.5) are a different technique.",
+          "short": "The model's self-rated confidence was never checked against real accuracy, so it cannot be trusted."
+        },
+        {
+          "topic": "Emotion versus problem",
+          "note": "Unaided, a model may focus on the customer's emotion at the expense of the underlying issue, so the prompt should say when to prioritize which.",
+          "short": "A model may chase feelings over the real problem; the prompt should set the priority."
+        },
+        {
+          "topic": "Multiple lookup matches",
+          "note": "A lookup returning several customers has not identified the customer; picking the most recent, most complete or first record, or merging them, risks exposing or altering another person's data, so ask for one more identifier and proceed only when exactly one record matches.",
+          "short": "If a lookup finds several customers, ask for another detail until exactly one matches."
+        },
+        {
+          "topic": "Prompt criteria and examples",
+          "note": "'Escalate when appropriate' lets the model's threshold drift toward tone and complexity; state each rule with its reason in the guardrails section and add few-shot examples in pairs that differ in one feature only.",
+          "short": "Don't say 'escalate when appropriate'; write clear rules with reasons and paired examples."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "If the issue is simple, the agent should attempt a quick fix before honoring a customer's request for a human, since that resolves it faster than a person would.",
+          "why": "An explicit request settles the matter; trying a fix or asking diagnostic questions first overrides a preference the customer clearly stated.",
+          "fix": "Hand off immediately without investigating, even when the agent could resolve the issue in a couple of turns."
+        },
+        {
+          "trap": "Where policy addresses only price adjustments on the company's own site, the agent may refuse a competitor price-match, or grant it after confirming the competitor's lower price.",
+          "why": "Policy is silent on competitors: declining invents a prohibition, approving invents a permission, and verifying the price confirms a fact without granting authority.",
+          "fix": "Escalate to the pricing-policy team or a supervisor; they can rule on situations the written rules leave uncovered."
+        },
+        {
+          "trap": "Negative sentiment signals that a human is needed, so a customer who sounds angry or irritated should be escalated.",
+          "why": "Tone is not a trigger; an angry customer may have a routine covered request such as a standard size exchange, and sentiment routing escalates easy cases while keeping real policy gaps.",
+          "fix": "Acknowledge the frustration, resolve the issue and offer a human as an option; escalate immediately only if the customer explicitly asks."
+        },
+        {
+          "trap": "If a customer lookup comes back with multiple matches, choosing the newest or the most complete record is a safe move for the agent.",
+          "why": "Heuristic picks fail quietly because test data rarely has namesakes, and in production the wrong pick discusses or changes another person's records; merging records invents a customer who doesn't exist.",
+          "fix": "Never choose among matches; ask for an additional identifier such as a booking reference, phone or account number, and continue once exactly one record matches."
+        },
+        {
+          "trap": "When policy has a gap, the agent can settle it by working out the policy's likely intent, reading it either generously or strictly.",
+          "why": "Interpreting policy on the company's behalf is a decision the agent has no authority to make.",
+          "fix": "Choose the answer that routes the decision to a person who is authorized to make it."
+        },
+        {
+          "trap": "A case with many steps or a lot of complexity is reason enough for the agent to escalate.",
+          "why": "Agents handle multi-step cases well when policy covers each step, so complexity is deliberately not a trigger; such options are usually distractors.",
+          "fix": "Escalate only for an explicit request, uncovered policy, or no meaningful progress."
+        }
+      ],
+      "exam_tips": [
+        "Reject any option that closes a policy gap by guessing the policy's intent, whether it reads it generously or strictly; the correct option routes the decision to someone who holds the authority.",
+        "Escalation justified only by complexity ('the case is complex') tends to be a distractor; correct answers escalate when the request falls outside policy or the customer has asked for a person."
+      ],
+      "facts": [
+        {
+          "item": "`TASK_SPECIFIC_INSTRUCTIONS`",
+          "detail": "In Anthropic's customer support guide, the system prompt string built by joining sections such as `STATIC_GREETINGS_AND_GENERAL`, `EXAMPLES` and `ADDITIONAL_GUARDRAILS`."
+        },
+        {
+          "item": "`ADDITIONAL_GUARDRAILS`",
+          "detail": "The guardrail section where escalation criteria belong; the guide's own guardrail forbids promises or agreements the agent isn't authorized to make."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Escalation trigger",
+          "def": "An observable conversation condition that justifies handing a case to a human."
+        },
+        {
+          "term": "Escalation accuracy",
+          "def": "A measure of both missed escalations and unnecessary handoffs, judged against whether each case actually needed a human."
+        },
+        {
+          "term": "Policy gap",
+          "def": "A request that written policy neither permits nor forbids, which only someone with authority can decide."
+        },
+        {
+          "term": "Reiterated preference",
+          "def": "A customer repeating that they want a person after being offered help, which turns it into an explicit request."
+        },
+        {
+          "term": "Heuristic selection",
+          "def": "Choosing among ambiguous lookup matches by a rule like most recent or most complete, which fails silently."
+        },
+        {
+          "term": "Contrasting example pair",
+          "def": "Two few-shot examples that differ in a single feature so the model learns where the escalation boundary lies."
+        }
+      ]
+    },
+    {
+      "code": "5.3",
+      "task": "Implement error propagation strategies across multi-agent systems",
+      "summary": "This lesson is about how failures travel from subagents back to the coordinator in a multi-agent system. The coordinator only sees each subagent's final report, so that report has to explain what failed, what was tried, which partial results survived and what alternatives remain. It also covers telling an access failure from a valid empty result, retrying transient errors locally, and avoiding both hidden failures and needless full stops.",
+      "key_concept": {
+        "term": "Structured error propagation",
+        "definition": "The subagent's report is the coordinator's only window onto a failure. Subagents therefore handle transient failures locally and escalate the rest with structured context covering the failure, the attempts made, the partial results kept and possible alternatives, so the coordinator chooses a recovery rather than guessing.",
+        "short": "Subagents retry short failures and report others in detail so the coordinator can plan recovery."
+      },
+      "notes": [
+        {
+          "topic": "Coordinator sees final messages only",
+          "note": "A subagent runs in a separate context, and the parent receives nothing but its final message. The isolation keeps the coordinator's context clean, but the coordinator only learns of a failure if the subagent reports it.",
+          "short": "The coordinator sees only a subagent's final message, so failures must be reported."
+        },
+        {
+          "topic": "Report as tool result",
+          "note": "Agents adapt well when told a tool is failing, and a coordinator is an agent too: the subagent's error report is what it reasons from when choosing to retry later, reroute, narrow the question or flag the gap.",
+          "short": "The coordinator uses the subagent's error report to decide what to do next."
+        },
+        {
+          "topic": "Tool-level error pattern",
+          "note": "A single failed tool call should return a `tool_result` whose content names the cause and which sets `is_error: true`, instead of crashing.",
+          "short": "A failed tool call returns a `tool_result` with the cause and `is_error: true`, not a crash."
+        },
+        {
+          "topic": "Four-part error report",
+          "note": "A subagent's failure report should give the failure type (timeout, auth, rate limit, invalid query), the exact query and source attempted, any partial results (say 40 of 200 filings) and alternatives such as a read replica, another index, a wider date range or a second provider.",
+          "short": "A failure report gives the error type, what was tried, partial results, and other options."
+        },
+        {
+          "topic": "Payloads that fall short",
+          "note": "A fixed code like `UNAVAILABLE`, a numeric code with raw message and severity, or retry counts, timestamps and subagent IDs all describe the failure without enabling recovery; the last group is monitoring data for later human debugging.",
+          "short": "Plain error codes, counts and times explain what broke, not how the coordinator can fix it."
+        },
+        {
+          "topic": "Too little or too much",
+          "note": "Putting the details only in a log hides them from the coordinator, while forwarding the full reasoning trace and raw output floods its context and defeats context isolation.",
+          "short": "Details hidden in logs help no one, but sending everything floods the coordinator's context."
+        },
+        {
+          "topic": "Valid empty result",
+          "note": "When a query executes and finds no matches, that result is itself a finding (the discontinued SKU genuinely has no rows), so it is reported as success with zero items.",
+          "short": "A query that ran and found nothing is a real result: report success with zero items."
+        },
+        {
+          "topic": "Access failure",
+          "note": "If a query never finished (timeout, exhausted connection pool, expired key), it tells you nothing about whether matches exist, so report it as an error with structured context. Timeouts are the most ambiguous case, since the server may still have executed the request.",
+          "short": "A query that never finished tells you nothing, so report it as an error with details."
+        },
+        {
+          "topic": "Silent suppression",
+          "note": "If a failure comes back as an empty list marked success, the coordinator concludes the source was checked and found empty; no downstream validation can separate a genuine zero from a concealed failure, since the difference was visible only to the subagent.",
+          "short": "Never hide a failure as an empty success; the coordinator will trust a false zero."
+        },
+        {
+          "topic": "Termination anti-pattern",
+          "note": "Stopping the whole run because one source failed throws away valid results from the other subagents; Anthropic's research system resumes from the point of error because restarts are expensive and frustrating.",
+          "short": "Don't stop the whole run for one failed source; keep the other good results."
+        },
+        {
+          "topic": "Recover locally first",
+          "note": "The failing subagent already holds the query, credentials and partial results, so it retries transient failures cheaply; escalating each short-lived failure crowds the coordinator's context with issues that would have resolved on their own.",
+          "short": "The subagent should retry short failures itself instead of sending each one to the coordinator."
+        },
+        {
+          "topic": "Bounded, type-matched retries",
+          "note": "Retries need a cap and must suit the failure: an invalid tool request is retried 2-3 times with corrections, while backoff is pointless for an authentication failure since waiting won't fix a credential.",
+          "short": "Limit retries and match them to the error; waiting will not fix bad credentials."
+        },
+        {
+          "topic": "Coordinator recovery options",
+          "note": "With a full report the coordinator can ask the same subagent to try the suggested alternative, assign the gap to another subagent with a different source, or keep the partial results and move on while recording the gap.",
+          "short": "With a full report, the coordinator can retry, reassign the gap, or move on and note it."
+        },
+        {
+          "topic": "Coverage annotations",
+          "note": "The final output marks support per finding (several independent sources, one source, or partial results from a failed source) and gaps per topic (which source, why, what was tried); the schema should give each topic a support level and optional gap note instead of requiring findings everywhere.",
+          "short": "The final report shows how well each finding is supported and which gaps remain."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Swapping the free-text error for a fixed status code like `UNAVAILABLE` meets the coordinator's needs, since code can branch on a fixed value reliably.",
+          "why": "It is still the generic message, just in capitals: it reports a failure without its cause, the attempts made or the results saved, so the coordinator can branch but has no idea which branch is right.",
+          "fix": "Return the failure category, the attempted query and source, partial results and possible alternatives."
+        },
+        {
+          "trap": "If a source is unreachable, it is safe to hand back an empty result flagged as success, since that keeps the pipeline moving.",
+          "why": "It tells the coordinator the source was searched and held nothing, so the final report claims coverage that never happened, and nothing downstream can detect it.",
+          "fix": "Report the access failure as an error with structured context at the point it happens; use success with zero items only for queries that actually ran."
+        },
+        {
+          "trap": "Because hiding errors is a mistake, the safe response to any subagent failure is to stop the entire workflow right away.",
+          "why": "One failed source does not invalidate the other subagents' results; terminating discards sound work, produces no answer and forces an expensive restart.",
+          "fix": "Keep the valid results, recover what can be recovered (alternative source, another subagent) and flag the remaining gap."
+        },
+        {
+          "trap": "A reliable subagent either escalates each failure to the coordinator the moment it happens or keeps retrying every error with backoff until it goes through.",
+          "why": "Transient errors usually clear after a few local retries, so escalating them clutters the coordinator, while unlimited retries or backoff on errors like `authentication_failed` only delay the report the coordinator needs.",
+          "fix": "Retry transient errors (`rate_limit`, `overloaded`) a limited number of times locally; report non-retryable ones right away with the attempts made, partial results and alternatives."
+        },
+        {
+          "trap": "The payload that best enables recovery is one centred on audit detail, retry counts, timestamps, raw traces or an error code with a severity rating.",
+          "why": "Those fields describe the failure or help someone debug it later, and raw traces flood the coordinator's context, but none of them says what to do next.",
+          "fix": "Choose the payload with failure category, attempted action, partial results and suggested alternatives."
+        }
+      ],
+      "exam_tips": [
+        "For a question about the error payload that helps the coordinator recover, the right choice includes the type of failure, the action attempted, any partial results and alternative approaches. Payloads built on audit detail, timing information, raw traces or one status code merely describe what went wrong."
+      ],
+      "facts": [
+        {
+          "item": "`is_error`",
+          "detail": "Set to `true` on a `tool_result` block to mark it as a failed call rather than a successful answer."
+        },
+        {
+          "item": "`error_category`",
+          "detail": "Agent SDK field used to classify subagent failures and decide where each is best handled."
+        },
+        {
+          "item": "`rate_limit`, `overloaded`",
+          "detail": "Likely to clear after a delay; the subagent retries locally with backoff."
+        },
+        {
+          "item": "`server_error`",
+          "detail": "Frequently resolves on its own; the subagent makes a capped number of retries before escalating."
+        },
+        {
+          "item": "`authentication_failed`, `cloud_credential_error`",
+          "detail": "Will not clear on retry; reported to the coordinator right away."
+        },
+        {
+          "item": "`unknown`",
+          "detail": "Whether a retry will help is unclear; retry a capped number of times, then escalate with full context."
+        },
+        {
+          "item": "2-3 retries",
+          "detail": "The number of corrected retries an agent makes after an invalid tool request before it gives up."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Structured error propagation",
+          "def": "Passing unrecoverable failures upward with type, attempts, partial results and alternatives so the receiver can choose a recovery."
+        },
+        {
+          "term": "Access failure",
+          "def": "A request that never completed, such as a timeout or expired credential, which reveals nothing about whether matching data exists."
+        },
+        {
+          "term": "Valid empty result",
+          "def": "A query that completed and genuinely matched nothing, which is itself a finding."
+        },
+        {
+          "term": "Silent suppression",
+          "def": "Disguising a failure as a successful empty result so the gap is invisible downstream."
+        },
+        {
+          "term": "Coverage annotation",
+          "def": "Marking a synthesis with how well each finding is supported and which topics have gaps and why."
+        },
+        {
+          "term": "Context isolation",
+          "def": "Each subagent working in its own context so only its final message reaches the coordinator."
+        }
+      ]
+    },
+    {
+      "code": "5.4",
+      "task": "Manage context effectively in large codebase exploration",
+      "summary": "This lesson is about keeping the main agent sharp while it explores a large codebase. Every token competes for attention, so long sessions drift toward vague, generic answers. It covers handing verbose searches to subagents such as Explore, saving key findings to scratchpad files, passing short summaries between phases, choosing between `/compact` and `/clear`, and planning for crash recovery with a manifest.",
+      "key_concept": {
+        "term": "Context as a finite attention budget",
+        "definition": "All tokens in the window compete for attention, so the fuller the window gets, the worse the model recalls particular findings from earlier. Most of the work in exploring a big codebase is deciding what tokens get into the main context, with everything else held in subagents or on disk.",
+        "short": "Every token competes for attention, so keep only what matters in the main context."
+      },
+      "notes": [
+        {
+          "topic": "Degradation symptoms",
+          "note": "After hours of exploring, the agent describes a class it studied in terms of typical patterns and gives inconsistent answers about the same component: the finding is still in the transcript but is no longer reliably retrieved.",
+          "short": "After long exploring, the agent gives vague or mixed answers about things it already read."
+        },
+        {
+          "topic": "Context rot gradient",
+          "note": "Recall falls gradually as tokens accumulate in every model, and exploration makes it worse because file reads, grep output and listings pile up; an unscoped 'investigate this' can pull hundreds of files into the main conversation.",
+          "short": "Recall drops as tokens pile up, and exploring files fills context fast."
+        },
+        {
+          "topic": "Fixes that don't work",
+          "note": "Context rot affects larger models too; raising the output-token limit changes how much the model can write, not what it remembers; and re-reading the repository just floods the context a second time.",
+          "short": "Bigger models, higher output limits or re-reading the code don't fix context rot."
+        },
+        {
+          "topic": "Delegate verbose discovery",
+          "note": "A subagent runs in its own window and only its final message returns; it may spend tens of thousands of tokens exploring but typically returns about 1,000 to 2,000, leaving the coordinator's window for the high-level plan.",
+          "short": "A subagent explores in its own window and returns only a short final message."
+        },
+        {
+          "topic": "Good delegated tasks",
+          "note": "Delegate specific questions whose answers compress well, such as returning all test file paths as one list or reporting a flow's call chain.",
+          "short": "Give subagents clear questions with short answers, like a list of test file paths."
+        },
+        {
+          "topic": "Explore subagent",
+          "note": "Claude Code ships a built-in Explore subagent meant for finding files, searching code and exploring a codebase; it gets only read-only tools, and Write and Edit are denied to it.",
+          "short": "Claude Code's built-in Explore subagent searches code with read-only tools; it cannot Write or Edit."
+        },
+        {
+          "topic": "When not to delegate",
+          "note": "Keep quick targeted changes, work needing frequent back-and-forth, and latency-sensitive tasks in the main conversation, because a non-fork subagent starts fresh and must gather context first.",
+          "short": "Keep quick edits, back-and-forth work, and urgent tasks in the main chat, not subagents."
+        },
+        {
+          "topic": "Main-agent workarounds fail",
+          "note": "Stopping a search at the first 200 matches leaves the inventory incomplete; going directory by directory still puts every path into main context; and compacting afterwards only happens once the flood is over.",
+          "short": "Capping results, searching folder by folder, or compacting later all fail to protect main context."
+        },
+        {
+          "topic": "Scratchpad discipline",
+          "note": "Record specific findings (class names, base classes, paths, values) to a file at the moment they are learned, and consult that file whenever a question relies on something found earlier; writing without reading leaves the answer to degraded recall.",
+          "short": "Write findings to a file as you learn them, and read that file when needed."
+        },
+        {
+          "topic": "One file per subagent",
+          "note": "Concurrent subagents run in isolated contexts and cannot see each other, so each writes its own uniquely named scratchpad (for example one per module) and the coordinator aggregates only after all have finished.",
+          "short": "Parallel subagents can't see each other, so each writes its own file, merged at the end."
+        },
+        {
+          "topic": "Phase hand-off summaries",
+          "note": "A non-fork subagent starts with only its prompt, so the coordinator summarizes what the previous phase established and opens every next-phase prompt with that summary, which avoids costly and inconsistent rediscovery.",
+          "short": "Start each new phase's prompt with a summary of what earlier phases found."
+        },
+        {
+          "topic": "`/compact` versus `/clear`",
+          "note": "`/compact` swaps the conversation for a structured summary, letting the same exploration carry on, and adding a focus instruction preserves whatever you pick; `/clear` wipes the context completely and is meant for moving to unrelated work.",
+          "short": "`/compact` summarizes the chat so work can continue; `/clear` wipes everything for new work."
+        },
+        {
+          "topic": "What survives compaction",
+          "note": "Project-root CLAUDE.md and unscoped rules are re-injected from disk, up to five recently modified read or edited files are re-read, background commands and subagents keep running, and hook-added context is summarized; your scratchpad is not automatically re-read and subagent transcripts are unaffected.",
+          "short": "After compaction, CLAUDE.md and recent files reload, but your notes file is not re-read."
+        },
+        {
+          "topic": "Crash recovery design",
+          "note": "Each subagent exports its findings to a known per-agent path, the coordinator records status and result path in a JSON manifest, and on restart it reads the manifest, skips completed agents and injects their findings into prompts for the unfinished work.",
+          "short": "Subagents save findings to known files; a JSON status file lets a restart skip finished work."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "If, deep into a long session, the agent begins describing classes by their typical patterns, accurate recall can be brought back by switching to a bigger model or by increasing the output token limit.",
+          "why": "The cause is context rot, which affects every model, and the output limit governs how much the agent can write, not what it can recall.",
+          "fix": "Restrict how much verbose output reaches the main context, and store key findings in a scratchpad the agent consults before it answers."
+        },
+        {
+          "trap": "Doing a huge search directly in the main agent and then compacting works just as well as handing the search to a subagent.",
+          "why": "Compaction happens after the context has already been flooded, and the lossy summary may not keep every exact path.",
+          "fix": "Run the search in a subagent that returns only the consolidated result to the main agent."
+        },
+        {
+          "trap": "To give the coordinator just one file to read, every concurrent subagent should append its findings to the same shared scratchpad.",
+          "why": "Parallel subagents in isolated contexts cannot see each other, so one agent's record can replace another's before anyone reads it.",
+          "fix": "Give each subagent its own uniquely named file and aggregate them only after every subagent has finished."
+        },
+        {
+          "trap": "After key findings are saved to a scratchpad, the agent is free to answer later questions from memory; the file is only needed if something crashes.",
+          "why": "Answering from memory relies on recall over the long transcript, which is exactly what has degraded; the file helps only when later answers go through it.",
+          "fix": "Instruct the agent to consult the scratchpad before answering anything that depends on an earlier finding, and to add new findings afterwards."
+        },
+        {
+          "trap": "To protect an exact configuration value, running a focused `/compact` is sufficient by itself.",
+          "why": "Even a focused summary is lossy, and aggressive compaction can drop a detail whose importance only becomes clear later.",
+          "fix": "Pair `/compact` with a scratchpad file that stores exact values such as `pool_size=12` verbatim on disk."
+        },
+        {
+          "trap": "If the coordinator crashes, rerunning all subagents from the beginning is the safest way to recover.",
+          "why": "It throws away completed, exported work and repeats expensive exploration that the manifest already records as done.",
+          "fix": "Read the manifest, keep the completed agents' exported findings, and spawn only the unfinished subagents with those findings injected into their prompts."
+        }
+      ],
+      "exam_tips": [],
+      "facts": [
+        {
+          "item": "`/compact`",
+          "detail": "Replaces the conversation with a structured summary to free space; a focus such as `/compact focus on the refund flow trace` controls what is kept."
+        },
+        {
+          "item": "`/clear`",
+          "detail": "Resets the context entirely, intended for switching to unrelated work."
+        },
+        {
+          "item": "`compact_boundary`",
+          "detail": "System event subtype recorded when compaction runs, with `compactMetadata` holding `trigger` (e.g. `auto`) and `preTokens`."
+        },
+        {
+          "item": "Up to five files",
+          "detail": "After compaction Claude Code re-reads at most five files it read or edited, most recently modified first; a scratchpad is not automatically among them."
+        },
+        {
+          "item": "CLAUDE.md",
+          "detail": "Project-root CLAUDE.md and unscoped rules are re-injected from disk after compaction, and CLAUDE.md can hold standing instructions on what compaction must preserve."
+        },
+        {
+          "item": "Explore subagent",
+          "detail": "Claude Code's built-in subagent for discovery and code search; it can use only read-only tools, and Write and Edit are denied."
+        },
+        {
+          "item": "`NOTES.md`",
+          "detail": "Example notes file a custom agent maintains as its scratchpad."
+        },
+        {
+          "item": "`claude-progress.txt`",
+          "detail": "Progress log created by an initializer in long-running agent harnesses, alongside a JSON feature list whose entries carry a `passes` flag."
+        },
+        {
+          "item": "JSON manifest",
+          "detail": "The favoured format for run state, since a model is less prone to wrongly altering or overwriting JSON than Markdown."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Attention budget",
+          "def": "The idea that every token in context competes for the model's attention, so context must be spent deliberately."
+        },
+        {
+          "term": "Scratchpad file",
+          "def": "A file on disk where an agent records exact findings and reads them back across context boundaries."
+        },
+        {
+          "term": "Explore subagent",
+          "def": "Claude Code's read-only built-in subagent for file discovery, code search and codebase exploration."
+        },
+        {
+          "term": "Non-fork subagent",
+          "def": "A subagent that starts with only the prompt it is given and no parent conversation context."
+        },
+        {
+          "term": "Phase summary",
+          "def": "A condensed account of what the previous exploration phase established, placed at the top of next-phase prompts."
+        },
+        {
+          "term": "Compact boundary",
+          "def": "The recorded marker of a compaction event, noting what triggered it and how many tokens preceded it."
+        },
+        {
+          "term": "Manifest",
+          "def": "A single structured file listing each agent's status and export path so a restarted coordinator can resume the run."
+        }
+      ]
+    },
+    {
+      "code": "5.5",
+      "task": "Design human review workflows and confidence calibration",
+      "summary": "This lesson is about deciding which extracted data a person should check and when a confidence score deserves trust. A high overall accuracy can hide weak document types or rare fields, so you measure each segment first. It covers calibrating per-field scores against labeled data, setting a threshold for each field, sending conflicts to reviewers, and using stratified sampling to keep auditing even high-confidence output.",
+      "key_concept": {
+        "term": "Calibrated, segment-level confidence",
+        "definition": "A confidence score is fit for routing only once labeled data has validated it, for example by showing that fields scored 0.9 are correct roughly 90% of the time within every document type and field rather than just on average. Before that check, the score is merely what the model claimed, not something measured.",
+        "short": "Trust a confidence score only after labeled data shows it matches real accuracy in every segment."
+      },
+      "notes": [
+        {
+          "topic": "Aggregates are weighted",
+          "note": "Overall accuracy is dominated by the most common documents and by fields present on every document, so a small segment (receipts at 5% of volume) could be far worse without moving the headline number.",
+          "short": "Overall accuracy is driven by common documents, so a small group can be much worse unseen."
+        },
+        {
+          "topic": "Rare fields cost most",
+          "note": "Harder, rarer fields such as dosage amounts or currency totals are often wrong more frequently and do the most damage when wrong.",
+          "short": "Rare, hard fields like dosages or totals are wrong more often and cost the most."
+        },
+        {
+          "topic": "Measure segments first",
+          "note": "From the labeled set you already have, calculate accuracy per document type, per field and per combination (such as dosage on handwritten prescriptions), and automate a segment only if it clears the bar on its own.",
+          "short": "Measure accuracy per document type and field, and automate only segments that pass alone."
+        },
+        {
+          "topic": "Targeted response",
+          "note": "When a single cell misses the bar, either keep reviewing that type or field or rework its prompt and schema, and still cut review on the segments that pass; the answer is neither to review everything nor to automate everything.",
+          "short": "If one segment fails, keep reviewing or fix it, but still cut review where segments pass."
+        },
+        {
+          "topic": "Confusion matrix",
+          "note": "Anthropic's classification cookbook builds a confusion matrix because it shows which categories get confused, which one accuracy number cannot.",
+          "short": "A confusion matrix shows which categories get mixed up, which one accuracy number can't show."
+        },
+        {
+          "topic": "Per-field confidence",
+          "note": "Assign scores per field rather than per document, since the same document may contain an invoice number you can trust next to a total you can't; making confidence a required schema property ensures it appears in every response.",
+          "short": "Give a confidence score per field, not per document, and make it required in the schema."
+        },
+        {
+          "topic": "Raw scores aren't probabilities",
+          "note": "Self-reported scores are useful for ranking but are not error rates; a cookbook classification example returns category scores that sum to well over 1.",
+          "short": "Self-reported scores help rank items but are not real error rates."
+        },
+        {
+          "topic": "Calibration procedure",
+          "note": "Take a labeled validation set that was kept out of prompt tuning, run the pipeline over it, bucket fields by score, check how often each bucket is really correct, and base the threshold on that measured accuracy.",
+          "short": "Group fields by score on held-out labeled data, check real accuracy, and set thresholds from that."
+        },
+        {
+          "topic": "Per-field thresholds",
+          "note": "The same score can mean different accuracy per field (0.9 or above might be 99% correct for dates but 85% for line-item totals), so fields may need separate thresholds.",
+          "short": "The same score can mean different accuracy for each field, so fields may need their own thresholds."
+        },
+        {
+          "topic": "Recalibrate on change",
+          "note": "Redo calibration whenever the prompt, model or document mix changes; uncalibrated or stale thresholds are the usual reason reviewers find wrong high-scoring fields and stop trusting scores.",
+          "short": "Recalibrate whenever the prompt, model or document mix changes, or reviewers stop trusting scores."
+        },
+        {
+          "topic": "Two routing signals",
+          "note": "Send to a human when a field's calibrated confidence is below its threshold, or when the source itself is problematic (self-contradicting, documents disagreeing, illegible or missing fields), regardless of score.",
+          "short": "Send to a human if confidence is below threshold or the source itself is unclear or conflicting."
+        },
+        {
+          "topic": "Flag conflicts explicitly",
+          "note": "Instruct the model to raise conflicts instead of silently choosing a value, and explicitly allow it to answer that it does not know; 'unsure' or 'conflicting sources' then turns into a signal you can route on.",
+          "short": "Let the model flag conflicts or admit it doesn't know, instead of guessing silently."
+        },
+        {
+          "topic": "Queue priority and monitoring",
+          "note": "Put the items most likely wrong and most costly (high value, regulated, legally significant) first, and track routing rates: a sudden spike in one field's 'needs review' results suggests its definition needs work.",
+          "short": "Review the riskiest, costliest items first, and watch for sudden jumps in review rates."
+        },
+        {
+          "topic": "Stratified audit sampling",
+          "note": "Keep sampling auto-accepted output randomly within each document-type and field cell so rare, risky cells get their own error estimate; feed confirmed errors into the labeled set, recalibrate, and restore full review for any segment over its bar.",
+          "short": "Keep randomly sampling auto-accepted output in each segment, and feed found errors back to recalibrate."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "An overall accuracy as high as 97% justifies cutting back human review everywhere in the pipeline.",
+          "why": "The aggregate is a weighted average dominated by common documents and fields, so a rare document type or field can be failing badly while the headline stays high.",
+          "fix": "Measure accuracy per document type, per field and per combination, and reduce review only for segments that meet the bar on their own."
+        },
+        {
+          "trap": "When the model reports 0.9 confidence, the field will be right 90% of the time, so that number can serve as a threshold as is.",
+          "why": "Self-reported scores are not probabilities until checked against ground truth, and the accuracy behind a given score differs by field and document mix.",
+          "fix": "Calibrate on a held-out labeled validation set and choose thresholds, per field if needed, from measured accuracy."
+        },
+        {
+          "trap": "High-confidence extractions that are auto-accepted no longer need any human checking afterwards.",
+          "why": "New layouts, revised forms or model upgrades can make calibration drift, and the pipeline goes on assigning high confidence to outputs that have become wrong.",
+          "fix": "Keep human-checking a stratified random sample from every document-type and field cell, feed errors back and recalibrate."
+        },
+        {
+          "trap": "If reviewers keep catching errors in fields with scores of 0.9 and above, the fix is just to push the threshold higher.",
+          "why": "The likely root cause is a threshold never calibrated against labeled data or calibrated on a different document mix; raising it without measuring just moves the problem.",
+          "fix": "Recalibrate against labeled data that reflects the current documents, then set thresholds from measured accuracy."
+        }
+      ],
+      "exam_tips": [
+        "When reviewers report frequent errors in high-scoring fields and have started rechecking everything, the underlying cause is a threshold that either was never calibrated on labeled data or has stopped fitting today's documents; pushing it up without measurement just moves the problem elsewhere.",
+        "The most frequently tested rule is to measure a segment's own accuracy before cutting human review on it. A strong aggregate doesn't make every segment safe to automate, and a single failing cell doesn't require keeping everything under review."
+      ],
+      "facts": [
+        {
+          "item": "Required per-field confidence",
+          "detail": "With structured outputs, a schema that requires a confidence property on every field guarantees each response includes one for routing code to read."
+        },
+        {
+          "item": "Scores summing over 1",
+          "detail": "In a cookbook classification example, one text received 0.7 for Technology and 0.5 for Business, which shows raw scores can rank items but are not calibrated probabilities."
+        },
+        {
+          "item": "Recalibration triggers",
+          "detail": "A change to the prompt, the model or the document mix means thresholds must be recalibrated."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Aggregate accuracy",
+          "def": "A single weighted-average accuracy across all documents and fields that can mask weak segments."
+        },
+        {
+          "term": "Segment",
+          "def": "A slice of the pipeline's output such as one document type, one field, or a type-and-field combination."
+        },
+        {
+          "term": "Calibration",
+          "def": "Checking model-stated scores against labeled outcomes so a threshold corresponds to measured accuracy."
+        },
+        {
+          "term": "Held-out validation set",
+          "def": "Labeled documents not used for prompt tuning, used to measure accuracy and calibrate scores."
+        },
+        {
+          "term": "Stratified random sampling",
+          "def": "Sampling separately within each segment so rare segments are represented in ongoing audits."
+        },
+        {
+          "term": "Confusion matrix",
+          "def": "A table showing which categories a classifier confuses with which, revealing errors an accuracy figure hides."
+        }
+      ]
+    },
+    {
+      "code": "5.6",
+      "task": "Preserve information provenance and handle uncertainty in multi-source synthesis",
+      "summary": "This lesson is about keeping every claim in a synthesized report traceable to where it came from. Summaries passed between agents tend to lose their sources, so each claim should travel with its source and supporting excerpt in a required structure. It also covers what to do when credible sources disagree: keep both figures with their dates and show contested points separately instead of averaging or picking one.",
+      "key_concept": {
+        "term": "Claim-source mapping",
+        "definition": "A structured record that ties every single claim to its source document or URL and to the exact excerpt backing it. Each step of the pipeline passes these records along and merges them, which keeps every claim in the final report traceable to the passage that supports it.",
+        "short": "Link each claim to its source and exact quote, and keep those links through every step."
+      },
+      "notes": [
+        {
+          "topic": "Compression drops sources",
+          "note": "A subagent's fluent paragraph carries the claim forward but not its reference, and once a coordinator merges several such paragraphs no step can say which document said what.",
+          "short": "Smooth summaries keep the claim but lose its source, so later steps can't trace it."
+        },
+        {
+          "topic": "CitationAgent pattern",
+          "note": "In Anthropic's research system, subagents report to a LeadResearcher and a separate CitationAgent then ties claims to specific locations, which only works because documents and claims are both still available.",
+          "short": "Anthropic's research system uses a separate agent to link claims to exact source spots."
+        },
+        {
+          "topic": "Citation record anatomy",
+          "note": "With the Messages API citations feature, responses come as text blocks whose claims carry citations; a `char_location` citation records `cited_text`, `document_index`, `document_title`, `start_char_index` and `end_char_index`.",
+          "short": "A `char_location` citation records the quoted text, document, title, and start and end positions."
+        },
+        {
+          "topic": "Citations are cheap",
+          "note": "`cited_text` does not count toward output tokens, nor toward input tokens when passed back later, so token cost is a weak reason to strip citations from intermediate results.",
+          "short": "`cited_text` is not counted as tokens, so cost is a weak reason to drop citations."
+        },
+        {
+          "topic": "Claim, source, excerpt",
+          "note": "The lead agent defines each subagent's output format as a list of claims, each with the claim, its document name or URL, and the supporting excerpt; output format belongs in every subagent brief alongside objective, tools and sources, and task boundaries.",
+          "short": "Ask each subagent to return claims, each with its source and supporting quote."
+        },
+        {
+          "topic": "`search_result` block model",
+          "note": "A `search_result` content block requires `source` (any stable identifier, URL or internal key), `title` and `content`; when citations are enabled Claude cites them automatically and each citation carries that source and title.",
+          "short": "A `search_result` block needs `source`, `title` and `content`; Claude then cites it by itself."
+        },
+        {
+          "topic": "Why each field matters",
+          "note": "A reviewer checks the claim using the excerpt and locates it using the source; a bibliography, an agent ID plus timestamp, or a quotation lacking a source name all fail to connect a specific claim to where it came from.",
+          "short": "A reviewer needs the quote to verify a claim and the source to find it."
+        },
+        {
+          "topic": "Schema, not instruction",
+          "note": "Enforce the contract with structured outputs so required fields and types are guaranteed and a subagent cannot omit `source` on one claim out of forty.",
+          "short": "Use a schema, not just instructions, so no claim can miss its `source`."
+        },
+        {
+          "topic": "Merge, don't flatten",
+          "note": "If two subagents find the same claim in different documents, merging it retains both sources together with both excerpts.",
+          "short": "When two subagents find the same claim, keep both sources and both quotes."
+        },
+        {
+          "topic": "Conflicting credible figures",
+          "note": "Report both values, each attributed, and mark the conflict; an average appears in no document and cannot be cited, and choosing one drops credible data and presents an open question as settled.",
+          "short": "When trusted sources disagree, report both values with sources; don't average or pick one."
+        },
+        {
+          "topic": "Who reconciles",
+          "note": "A subagent finishes its analysis and includes every conflicting value with its source; the coordinator, with the wider view, decides whether to investigate (for example different fiscal years or revenue definitions) and passes both values on if they truly disagree.",
+          "short": "The subagent reports all conflicting values; the coordinator decides whether to dig deeper."
+        },
+        {
+          "topic": "Dates as required fields",
+          "note": "Two figures only contradict if they describe the same moment, so every extracted figure carries its source's publication date or data-collection date as a required field next to claim, source and excerpt; run timestamps do not serve this purpose.",
+          "short": "Each figure needs its source date as a required field; different dates may explain different numbers."
+        },
+        {
+          "topic": "Where metadata goes",
+          "note": "For documents sent with citations, metadata goes in the `context` field as text or stringified JSON; inside prompts, you can wrap every document in a `<source>` tag that has metadata subtags.",
+          "short": "Put document metadata in the `context` field, or in `<source>` tags inside prompts."
+        },
+        {
+          "topic": "Established vs contested",
+          "note": "Put consistently supported findings in an established section and disputed or single-source findings in a contested section, keep each source's own characterization (extract word-for-word quotes first), and use tables for financial data, prose for news, and structured lists for technical findings.",
+          "short": "Split findings into agreed and disputed sections, and keep each source's own wording."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Listing all the documents a subagent looked at provides sufficient provenance for what it found.",
+          "why": "A bibliography looks traceable, but nothing links any particular claim to the document that supports it.",
+          "fix": "Make every claim include its own source, given as a document name or URL, together with an excerpt that supports it."
+        },
+        {
+          "trap": "When two credible figures conflict, taking their average and citing both sources is a fair, neutral middle ground.",
+          "why": "The average appears in neither source, so it fails grounding and cannot be cited, and it hides a real disagreement.",
+          "fix": "Report both figures, each attributed to its source, flagged as conflicting, and let the coordinator decide how to reconcile them."
+        },
+        {
+          "trap": "If two reports give different values for a statistic, the subagent should retain only the most recent figure and drop the others.",
+          "why": "Figures from different dates may both be accurate points on a trend, and discarding one throws away credible data; the real gap is that the outputs lack dates, and the subagent should not be settling conflicts itself.",
+          "fix": "Require a publication or collection date on every extracted figure and pass all values, with sources, to the coordinator."
+        },
+        {
+          "trap": "Source findings should be recast by the synthesis agent into a single, uniformly confident voice.",
+          "why": "Uniform confident wording strengthens claims beyond their sources (turning 'early survey data suggests' into 'data shows') and hides which findings are settled and which are disputed.",
+          "fix": "Separate established and contested sections and preserve each source's wording and caveats by extracting word-for-word quotes first."
+        },
+        {
+          "trap": "Provenance is restored by labeling every claim with the agent ID and run timestamp, or by presenting the claim as a quotation.",
+          "why": "An agent ID and timestamp record who produced the claim and when, and a quotation without a source name cannot be located, so neither maps the claim to where it came from.",
+          "fix": "Pair every claim with both a source and a supporting excerpt."
+        }
+      ],
+      "exam_tips": [
+        "For a scenario about lost provenance, the right fix attaches both a source and an excerpt to every claim. Lists of consulted documents, agent IDs, timestamps and quotations lacking a source name sound close, yet none of them links any single claim back to its origin."
+      ],
+      "facts": [
+        {
+          "item": "`char_location`",
+          "detail": "Citation type for plain-text documents carrying `cited_text`, `document_index`, `document_title`, `start_char_index` (0-indexed) and `end_char_index` (exclusive)."
+        },
+        {
+          "item": "`cited_text`",
+          "detail": "The quoted supporting passage; it does not count toward output tokens, nor toward input tokens when passed back in later turns."
+        },
+        {
+          "item": "`search_result`",
+          "detail": "Content block with required `source`, `title` and `content` fields and an optional `citations` setting with `enabled`."
+        },
+        {
+          "item": "`kb://article-1234`",
+          "detail": "Example of a non-URL stable identifier accepted in a `search_result` block's `source` field."
+        },
+        {
+          "item": "`context` field",
+          "detail": "Holds document metadata as text or stringified JSON when documents are passed with citations."
+        },
+        {
+          "item": "`<source>` tag",
+          "detail": "Prompt-side wrapper for each document, with metadata subtags such as dates."
+        },
+        {
+          "item": "Plain text document type",
+          "detail": "For simple prose; chunked by sentence; cited by character indices (0-indexed)."
+        },
+        {
+          "item": "PDF document type",
+          "detail": "For PDFs with text content; chunked by sentence; cited by page numbers (1-indexed)."
+        },
+        {
+          "item": "Custom content document type",
+          "detail": "For lists, transcripts, special formatting or more granular citations; no additional chunking; cited by block indices (0-indexed)."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Provenance",
+          "def": "The link between a claim and the specific passage that supports it."
+        },
+        {
+          "term": "Claim-source mapping",
+          "def": "A structured record tying each claim to its source document or URL and supporting excerpt."
+        },
+        {
+          "term": "Output contract",
+          "def": "The format the lead agent requires subagents to return, here claims with source and excerpt."
+        },
+        {
+          "term": "CitationAgent",
+          "def": "The separate agent in Anthropic's research system that ties a synthesized report's claims back to document locations."
+        },
+        {
+          "term": "Contested section",
+          "def": "The part of a synthesis report holding disputed or single-source findings and annotated conflicts."
+        },
+        {
+          "term": "Custom content document",
+          "def": "A citations document type that keeps its block structure instead of being chunked into sentences."
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "title": "Escalation triggers vs conditions that only look like triggers",
+      "columns": [
+        "Condition in the conversation",
+        "Escalate?",
+        "What the agent does"
+      ],
+      "rows": [
+        [
+          "Customer directly requests a person",
+          "Yes, immediately",
+          "Hands over at once, with no investigation or fix attempt first"
+        ],
+        [
+          "Request that no written policy addresses",
+          "Yes",
+          "Refers it to someone with authority to decide"
+        ],
+        [
+          "Reasonable attempts made, still no way forward",
+          "Yes",
+          "Hands off, summarizing the attempts made so far"
+        ],
+        [
+          "Customer frustrated but has not asked for a human",
+          "No",
+          "Recognizes the frustration, fixes the problem, mentions a human as an option"
+        ],
+        [
+          "Many-step case, but policy covers every step",
+          "No",
+          "Works through it"
+        ],
+        [
+          "Lookup returns several matching customers",
+          "No (ask first)",
+          "Asks for an additional identifier; never picks or merges records"
+        ]
+      ]
+    },
+    {
+      "title": "Access failure vs valid empty result (and the two anti-patterns)",
+      "columns": [
+        "Situation",
+        "How to report it",
+        "Watch out"
+      ],
+      "rows": [
+        [
+          "Query ran and matched zero rows",
+          "Success with zero items",
+          "This is a real finding, not an error"
+        ],
+        [
+          "Query never completed (timeout, exhausted pool, expired key)",
+          "Error with failure type, attempted query, partial results, alternatives",
+          "Timeouts are ambiguous: the server might still have executed the request"
+        ],
+        [
+          "Failure returned as an empty list marked success",
+          "Anti-pattern: silent suppression",
+          "Coordinator claims coverage nobody performed; nothing downstream can catch it"
+        ],
+        [
+          "Whole workflow stopped because one source failed",
+          "Anti-pattern: termination",
+          "Discards valid results from other subagents; restarts are expensive"
+        ],
+        [
+          "Some sources failed, others succeeded",
+          "Keep valid results, recover or flag the gap",
+          "Annotate support per finding and gaps per topic in the final output"
+        ]
+      ]
+    },
+    {
+      "title": "Context-control tools for long sessions",
+      "columns": [
+        "Tool",
+        "What it does",
+        "Watch out"
+      ],
+      "rows": [
+        [
+          "Case-facts block",
+          "Carries exact transactional facts in every prompt, outside the summarized history",
+          "Keep one structured record per issue in multi-issue sessions"
+        ],
+        [
+          "Field-level trimming",
+          "Passes only task-relevant fields of a tool result into history",
+          "Not character truncation and not a second-model summary"
+        ],
+        [
+          "`clear_tool_uses_20250919`",
+          "Replaces the oldest tool results with placeholders past a threshold",
+          "For stale results; the client keeps full history"
+        ],
+        [
+          "Subagent delegation",
+          "Runs verbose discovery in its own window and returns a condensed result",
+          "Not for quick targeted lookups or iterative back-and-forth"
+        ],
+        [
+          "`/compact` (focused)",
+          "Replaces the conversation with a structured summary to continue the same work",
+          "Lossy; pair with a scratchpad for exact values"
+        ],
+        [
+          "Scratchpad file",
+          "Keeps exact findings on disk across context boundaries",
+          "Must be read before answering; one file per concurrent subagent; not auto re-read after compaction"
+        ]
+      ]
+    },
+    {
+      "title": "Handling differing figures from credible sources",
+      "columns": [
+        "Approach",
+        "What it does",
+        "Verdict"
+      ],
+      "rows": [
+        [
+          "Average the two values",
+          "Produces a number found in no source, which cannot be cited",
+          "Wrong"
+        ],
+        [
+          "Keep the more authoritative value",
+          "Drops credible data and presents an open question as settled",
+          "Wrong"
+        ],
+        [
+          "Keep only the newest value",
+          "Discards a possibly valid point on a trend",
+          "Wrong"
+        ],
+        [
+          "Report both, attributed and flagged as conflicting",
+          "Shows the disagreement; coordinator can investigate definitions or periods",
+          "Right"
+        ],
+        [
+          "Require a publication or collection date on each figure",
+          "Lets the coordinator tell trends from true contradictions",
+          "Right (prevents false conflicts)"
+        ]
+      ]
+    }
+  ]
+}

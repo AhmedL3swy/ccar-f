@@ -1,0 +1,1204 @@
+{
+  "domain": 4,
+  "title": "Prompt Engineering & Structured Output",
+  "weight": 20,
+  "intro": "Domain 4 is about getting dependable output from Claude: review prompts with clear criteria, teaching by example, forcing JSON through tools and schemas, validating and retrying extractions, batching work cheaply, and reviewing with fresh instances.",
+  "lessons": [
+    {
+      "code": "4.1",
+      "task": "Design prompts with explicit criteria to improve precision and reduce false positives",
+      "summary": "This lesson is about cutting false positives in code review prompts. Noise comes from the model holding a different idea of which things are real problems, so asking it to be cautious does not help. You learn to name the categories worth flagging and the ones to ignore, and to link each severity level to real consequences. Expect exam options that offer confidence wording as the fix.",
+      "key_concept": {
+        "term": "Explicit categorical criteria",
+        "definition": "Rules in a review prompt that spell out the kinds of finding to report, the kinds to skip, and the line between them. Wording about confidence or caution cannot achieve this, because the model's notion of what is an issue stays the same.",
+        "short": "Name exactly which issue types to report and which to skip; vague caution words don't work."
+      },
+      "notes": [
+        {
+          "topic": "Root cause of false positives",
+          "note": "False positives come from the model having a different definition of what counts as an issue (e.g. flagging every string concatenation near a database call, even constant-only joins), not from uncertainty. The fix is to tell it where the category starts and ends.",
+          "short": "False positives mean the model sees 'issue' differently, so spell out each category's limits."
+        },
+        {
+          "topic": "Confidence wording fails",
+          "note": "Instructions such as 'only report high-confidence findings', 'don't nitpick' and 'be conservative' set a tone, not a rule. The model already felt sure about the findings it got wrong, so its false-positive rate hardly moves.",
+          "short": "Phrases like 'be conservative' just set a mood, so false positives barely drop."
+        },
+        {
+          "topic": "Recall cost of caution",
+          "note": "Newer models take caution wording literally. Their investigation is just as deep as before, but afterwards they hold back genuine findings that fall under the threshold, so recall falls and precision is still a problem.",
+          "short": "Newer models obey caution literally and hide real findings, so recall drops and precision stays poor."
+        },
+        {
+          "topic": "Outcome-based reporting rule",
+          "note": "Under the vendor's recommended single-pass wording, anything that might produce wrong behavior, a failing test or a misleading result must be reported; the only findings that may be dropped are nits like pure style or naming preferences.",
+          "short": "Report anything that could cause wrong behavior or failing tests; only skip pure style or naming nits."
+        },
+        {
+          "topic": "Golden rule of clarity",
+          "note": "An instruction that would puzzle someone who has little context will puzzle Claude as well; naming a category passes that test, while 'be conservative' fails it.",
+          "short": "If a person with little context would be confused by an instruction, Claude will be too."
+        },
+        {
+          "topic": "Comment-accuracy criterion",
+          "note": "A comment counts as a finding only if the behavior it describes is contradicted by the code; typos, stale wording and brevity are not in scope. So a docstring that promises a cache lookup, sitting above code that always hits the API, is a finding even when results are correct and no caller relies on the cache.",
+          "short": "A comment is a finding only when the code contradicts what it says; typos don't count."
+        },
+        {
+          "topic": "Two lists: report and skip",
+          "note": "A complete criteria set has an always-report list and a never-report list. Anthropic's Code Review uses this shape and is customized through `REVIEW.md` sections such as `## Do not report` and `## Always check`.",
+          "short": "Full criteria need two lists: what to always report and what to never report."
+        },
+        {
+          "topic": "Recognizable skip categories",
+          "note": "Useful skip items are categories the model can identify: generated files, whatever CI already checks (lint, formatting, type errors), and test-only code that deliberately breaks production rules. Useful always-check items are testable patterns, for example queries scoped to a tenant or log lines free of PII.",
+          "short": "Skip things the model can spot, like generated files or lint; always check clear, testable patterns."
+        },
+        {
+          "topic": "Local patterns vs documented standard",
+          "note": "Measure naming against the documented project standard rather than whatever style dominates the legacy code around it; otherwise the single new function that complies gets flagged. (Code Review reads `CLAUDE.md` as project context and reports new violations of it as nits.)",
+          "short": "Judge naming by the written project standard, not by the style of old code around it."
+        },
+        {
+          "topic": "XML tags per category",
+          "note": "Wrap each category's rules and its examples together in a descriptively named tag such as `<security_criteria>`, `<correctness_criteria>` or `<style_criteria>`, nest severity tags inside when natural, and keep tag names identical across prompts.",
+          "short": "Give every category one clearly named XML tag that holds both its rules and examples."
+        },
+        {
+          "topic": "Layouts that leak",
+          "note": "Prose paragraphs headed by a category name rely on the model spotting boundaries, a single severity-sorted list scatters each category, and a shared examples block at the end detaches examples from their rules; all allow one category's threshold to bleed into another.",
+          "short": "Prose paragraphs, one mixed list, or examples at the end let categories leak into each other."
+        },
+        {
+          "topic": "Severity anchoring",
+          "note": "Tie every severity level to its consequences (for example, Important means data would leak, behavior would break, or a rollback would be blocked, while style, naming and refactoring top out at Nit), and give each level one concrete code example, so labels hold steady between runs and between teams.",
+          "short": "Link each severity level to real consequences and one code example so labels stay stable."
+        },
+        {
+          "topic": "Choosing anchor examples",
+          "note": "Models pay close attention to example details: when all the critical examples involve authentication, the model can come to treat critical as meaning auth. Use varied examples, include borderline cases, and put them inside `<example>` tags to keep them from being taken as instructions.",
+          "short": "Use varied examples, including borderline ones, so the model doesn't link a level to one topic."
+        },
+        {
+          "topic": "Trust and disabling a category",
+          "note": "Developers judge the reviewer as a whole, so one noisy category gets accurate findings dismissed too. Temporarily skip-list it, rewrite its criteria explicitly, test on known-answer cases using recall or F1 (not 'looks quieter'), and re-enable only when it performs well.",
+          "short": "One noisy category hurts trust in all findings, so pause it, rewrite its rules, and retest."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "A noisy review prompt produces fewer false positives once you tell it to 'be conservative' or to 'only report high-confidence findings'.",
+          "why": "The model already labelled the false positives with confidence, so the same judgment lets them through; the wording only makes it hide real lower-ranked findings, lowering recall.",
+          "fix": "Replace confidence language with explicit categorical criteria stating what to report and what to skip."
+        },
+        {
+          "trap": "Any code that departs from the dominant style of the file around it is something the reviewer should flag.",
+          "why": "Surrounding legacy code may follow outdated styles, so measuring against it flags the one function that correctly follows the project convention.",
+          "fix": "Judge style and naming against the documented project standard (e.g. `CLAUDE.md`), flagging only new violations of it."
+        },
+        {
+          "trap": "Categories stay adequately separated if each gets a prose paragraph opening with its name, or if all examples sit in a single shared block at the end.",
+          "why": "Prose depends on the model noticing where a category ends, and a shared examples block separates each example from the rules it illustrates, so thresholds leak between categories.",
+          "fix": "Wrap the rules and examples for each category together in a separate XML tag whose name describes that category."
+        },
+        {
+          "trap": "Adjectives such as 'serious' or 'important' are all a severity level needs to be well defined.",
+          "why": "An adjective sets no boundary: one run may call a defect critical and the next run call the same defect medium, and teams disagree about what 'high' means.",
+          "fix": "Define each level by concrete consequences and anchor each with a specific code example."
+        },
+        {
+          "trap": "Switching off a noisy category shows it did not matter, or can replace fixing its prompt; re-enable it as soon as it generates fewer comments.",
+          "why": "Disabling is a temporary trust-protection step while criteria are rewritten, and 'fewer comments' can mean real findings were dropped.",
+          "fix": "Rewrite the criteria explicitly, test against known-answer cases using recall or F1, then re-enable."
+        }
+      ],
+      "exam_tips": [
+        "Options that try to quiet a noisy reviewer with confidence or caution language are distractors. The correct choice replaces that language with a concrete rule saying what gets reported and what gets skipped.",
+        "Turning a noisy category off is a deliberate, short-term move that preserves trust in the remaining categories while that category's criteria get rewritten. It neither means the category is unimportant nor replaces fixing its prompt."
+      ],
+      "facts": [
+        {
+          "item": "`REVIEW.md`",
+          "detail": "File where teams tailor Anthropic's Code Review, setting which issues get flagged, how severe each one is, and how it gets reported."
+        },
+        {
+          "item": "`## Do not report` / `## Always check`",
+          "detail": "Example `REVIEW.md` sections holding the skip list and the always-check list."
+        },
+        {
+          "item": "`CLAUDE.md` in Code Review",
+          "detail": "Treated as project context; new violations of it are flagged as nits."
+        },
+        {
+          "item": "Code Review default scope",
+          "detail": "Reports correctness bugs that would break production; formatting preferences and gaps in test coverage are excluded."
+        },
+        {
+          "item": "`Important` / `Nit` / `Pre-existing`",
+          "detail": "Code Review severity levels: fix before merging / minor and non-blocking / a defect that predates this PR."
+        },
+        {
+          "item": "`<security_criteria>`, `<correctness_criteria>`, `<style_criteria>`",
+          "detail": "Example descriptive tag names for isolating each category's rules and examples."
+        },
+        {
+          "item": "Feedback count",
+          "detail": "Code Review analytics metric counting comments auto-resolved after a developer fixed the flagged issue; a rough live signal that misses ignored or missed findings."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Explicit categorical criteria",
+          "def": "Prompt rules that say which finding types get reported and which get skipped."
+        },
+        {
+          "term": "False positive",
+          "def": "A reported finding that is not a real problem."
+        },
+        {
+          "term": "Precision",
+          "def": "Of the findings reported, the fraction that are real."
+        },
+        {
+          "term": "Recall",
+          "def": "The share of real issues in a known-answer set that the reviewer actually reports."
+        },
+        {
+          "term": "F1",
+          "def": "A single score balancing precision and recall."
+        },
+        {
+          "term": "Skip list",
+          "def": "The never-report list of categories a reviewer must ignore, also usable to disable a noisy category temporarily."
+        },
+        {
+          "term": "Severity anchor",
+          "def": "A concrete code example tied to a severity level so the label is applied consistently."
+        }
+      ]
+    },
+    {
+      "code": "4.2",
+      "task": "Apply few-shot prompting to improve output consistency and quality",
+      "summary": "This lesson covers few-shot prompting: placing a handful of worked examples in the prompt so Claude copies their format and picks up the judgment behind them. It explains when examples beat longer instructions, why each should state its reasoning, and why the set must vary in length, language and layout. The exam likes traps where an accidental shared trait skews results.",
+      "key_concept": {
+        "term": "Few-shot prompting",
+        "definition": "Putting a handful of worked examples, each pairing an input with its output, into the prompt so the model reproduces their format and works out the judgment they reflect. A few varied, well-chosen examples guide output more dependably than adding ever more instructions.",
+        "short": "Add a few varied input-and-output examples so the model copies the format and the judgment."
+      },
+      "notes": [
+        {
+          "topic": "Format drift despite rubric",
+          "note": "Even a long, itemized rubric can produce findings whose fields come in varying orders or go missing. Examples rank among the most dependable ways to control format, tone and structure, and 'constraining with examples' is a core consistency technique.",
+          "short": "Long rubrics can still give messy formats; examples control format, tone and structure much more reliably."
+        },
+        {
+          "topic": "Show the target shape",
+          "note": "Two or three sample findings that each list location, issue, severity and suggested fix in a consistent order pin down the format better than any paragraph explaining field order; lengthening the checklist just piles on description the model already ignores.",
+          "short": "Two or three sample findings show the field order better than any long explanation."
+        },
+        {
+          "topic": "When examples pay off",
+          "note": "Examples pay off most in three cases: the format is simpler to demonstrate than to explain, the task depends on subtle conventions, or plain instructions have failed to give consistent output. Begin with a single example and add others only if the output still falls short.",
+          "short": "Use examples when showing beats explaining; start with one and add more only if needed."
+        },
+        {
+          "topic": "Tag the examples",
+          "note": "Put every example inside `<example>` tags and enclose the whole set in `<examples>`, which keeps the model from mistaking example content for instructions.",
+          "short": "Wrap examples in `<example>` tags inside `<examples>` so Claude doesn't mistake them for instructions."
+        },
+        {
+          "topic": "Ambiguous tool choice",
+          "note": "When two actions are both plausible (e.g. `search_docs` vs `search_code` for 'where is the rate limit defined?'), add 2-4 examples built on genuinely ambiguous requests, each stating the chosen action and why the alternative lost.",
+          "short": "When two tools both fit, add 2-4 unclear examples that show the right pick and why."
+        },
+        {
+          "topic": "Reasoning generalizes",
+          "note": "A bare input-to-label pair teaches only that input; an example that states the deciding factor lets the model apply it to unlisted cases. Anthropic recommends a few diverse, canonical examples rather than a laundry list of edge cases.",
+          "short": "Examples that explain the deciding reason help the model handle new cases, not just copied ones."
+        },
+        {
+          "topic": "Growing pair lists backfire",
+          "note": "Adding a new pair after every misclassification rebuilds the laundry list, while deleting examples throws away the reasoning; replace exact pairs with a few examples that explain the label.",
+          "short": "Don't add a new pair for every mistake; use a few examples that explain the label."
+        },
+        {
+          "topic": "Contrast pairs",
+          "note": "Pair surface-similar examples that differ on the deciding factor: a broad except at a top-level boundary that logs and re-raises is acceptable, the same clause swallowing an error around a database write is an issue. The model can then apply 'is the error surfaced or lost?' to unseen code and languages.",
+          "short": "Pair look-alike examples that differ only on the key factor, so the model learns the real rule."
+        },
+        {
+          "topic": "Tool use examples",
+          "note": "A tool definition can carry sample calls (`input_examples`) that convey usage the schema alone does not; add them where correct usage is not obvious and skip them for simple single-parameter tools.",
+          "short": "Add sample calls (`input_examples`) to a tool when correct use isn't obvious from the schema."
+        },
+        {
+          "topic": "Accidental patterns",
+          "note": "The model learns whatever its examples share: five short English emails made length and language act as label signals, so long and non-English documents that were fine before started being mislabeled.",
+          "short": "The model learns anything your examples share, like length or language, even when you didn't mean it."
+        },
+        {
+          "topic": "Diversify, don't duplicate or delete",
+          "note": "Fix accidental patterns by varying length, language, structure and edge cases; duplicating examples strengthens the pattern, removing them restores the original inconsistency, and blaming model drift ignores that the regression arrived with the examples.",
+          "short": "Fix accidental patterns by varying your examples; copying or removing examples does not fix it."
+        },
+        {
+          "topic": "Properties of a good set",
+          "note": "Relevant (mirrors real inputs and output format), diverse (varied length, language, structure, edge cases), structured (`<example>`/`<examples>` tags), targeted and few (2-4 canonical examples with reasoning).",
+          "short": "A good set is relevant, varied, tagged, and small: 2-4 typical examples with reasoning."
+        },
+        {
+          "topic": "Extraction across layouts",
+          "note": "Empty required fields and invented values usually arise from documents shaped differently from what the prompt assumed (inline citations vs a bibliography, sample size in methods vs results); add examples showing correct extraction from each real structure.",
+          "short": "Missing or invented values often come from unexpected layouts, so add examples for each real layout."
+        },
+        {
+          "topic": "Completeness and informal values",
+          "note": "Show records at different completeness levels so omitting absent fields looks correct, keep vague amounts like 'a couple tablets' as written, label values that are genuinely absent as not specified, and tell the model outright that it may admit uncertainty.",
+          "short": "Show partly empty records, keep vague values as written, and let the model say it's unsure."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "The cure for inconsistent output format is to write out each field and where it goes at greater length and with more precision.",
+          "why": "More description of a format the model is already failing to follow still gives it nothing concrete to copy.",
+          "fix": "Add one to a few examples written in the exact target format, wrapped in `<example>` tags."
+        },
+        {
+          "trap": "Inconsistent formatting goes away if you drop temperature to zero, make the checklist longer, or run a second call to reformat the output.",
+          "why": "None of these gives the prompt a concrete model of the desired output, which is what is missing.",
+          "fix": "Add examples in the target format."
+        },
+        {
+          "trap": "Every edge case you have encountered deserves its own example pair, since more examples always help.",
+          "why": "A laundry list of input-label pairs teaches matching of known inputs rather than the deciding factor, so similar but new inputs degrade.",
+          "fix": "Keep to a few diverse, canonical examples, each showing why it got its label."
+        },
+        {
+          "trap": "When adding examples makes some inputs regress, that shows examples are wrong for this task and they should be taken out.",
+          "why": "The regression comes from an unintended trait the examples share (such as length or language), and removing them brings back the inconsistency they fixed.",
+          "fix": "Diversify the examples across length, language, structure and edge cases."
+        },
+        {
+          "trap": "The way to stop an extraction from inventing values is to use only clean examples where each field contains an exact value.",
+          "why": "Only-precise examples teach the model that every field must be filled precisely, so it invents precision or values the document never gave.",
+          "fix": "Include examples with vague values kept as written, absent values marked not specified, and partial records, plus explicit permission to state uncertainty."
+        }
+      ],
+      "exam_tips": [
+        "If the instructions are detailed and formatting is still inconsistent, the answer is to add examples written in the target format. Changing temperature, extending the checklist or adding a reformatting call are distractors, since none of them gives the model a concrete picture of the output."
+      ],
+      "facts": [
+        {
+          "item": "`<example>` / `<examples>`",
+          "detail": "Tags wrapping each example and the whole set so they are not mistaken for instructions."
+        },
+        {
+          "item": "2-4 examples",
+          "detail": "Recommended size of a targeted set aimed at ambiguous cases, each with its reasoning."
+        },
+        {
+          "item": "`input_examples`",
+          "detail": "List of sample calls in a tool definition (tool use examples) showing usage the schema cannot convey."
+        },
+        {
+          "item": "72% to 90%",
+          "detail": "Accuracy improvement on complex parameter handling that Anthropic reported from tool use examples teaching formats, ID patterns and optional-field combinations."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Few-shot prompting",
+          "def": "Steering output with a small set of worked input-output examples in the prompt."
+        },
+        {
+          "term": "Canonical examples",
+          "def": "A few representative, diverse examples chosen to convey the rule rather than enumerate cases."
+        },
+        {
+          "term": "Laundry list",
+          "def": "An exhaustive list of edge-case pairs, which the model pattern-matches against rather than generalizing from."
+        },
+        {
+          "term": "Contrast pair",
+          "def": "Two look-alike examples that differ only on the deciding factor, one acceptable and one an issue."
+        },
+        {
+          "term": "Tool use examples",
+          "def": "Sample tool calls (`input_examples`) placed in a tool definition to show correct usage."
+        },
+        {
+          "term": "Unintended pattern",
+          "def": "An accidental trait shared by all examples, such as length or language, that the model wrongly treats as signal."
+        }
+      ]
+    },
+    {
+      "code": "4.3",
+      "task": "Enforce structured output using tool use and JSON schemas",
+      "summary": "This lesson shows how to get reliable JSON by defining an extraction tool whose schema is the record you want, then treating the tool call's input as your data. It covers strict mode, the `tool_choice` settings and their trade-offs, and schema choices like optional, nullable fields and enum escape values. Remember for the exam: valid structure does not mean correct values.",
+      "key_concept": {
+        "term": "Extraction tool as output schema",
+        "definition": "A tool you never actually run: its `input_schema` defines the JSON record you are after, and the `input` of the `tool_use` block Claude produces when calling it is your result. Strict mode guarantees that structure, but it does not guarantee the values match the source.",
+        "short": "A tool you never run: its schema shapes the JSON, and Claude's tool input is your result."
+      },
+      "notes": [
+        {
+          "topic": "Why not prompt-only JSON",
+          "note": "Asking for 'only a JSON object' mostly works but on messy corpora yields missing braces, numbers in quotes or absent required keys, forcing parser and retry code; tool use declares the shape as a JSON Schema instead.",
+          "short": "Asking for plain JSON in the prompt can break on messy data; a tool schema sets the shape."
+        },
+        {
+          "topic": "Extraction tool anatomy",
+          "note": "A tool consists of `name`, `description` and `input_schema`. In extraction, the schema itself is the target record, and every structural choice (required, optional, enum) is made there.",
+          "short": "Every tool needs a name, a description and a schema; in extraction, the schema is your record."
+        },
+        {
+          "topic": "Reading the result",
+          "note": "There is nothing to execute: the response has `stop_reason` of `tool_use` and a `tool_use` block with `id`, `name` and `input`, and `input` is your data. The same pattern serves summaries, entity lists, sentiment and classification.",
+          "short": "You don't run anything: the `input` inside the `tool_use` block is your extracted data."
+        },
+        {
+          "topic": "Non-strict only steers",
+          "note": "Without strict mode a tool definition strongly guides but does not constrain Claude, which may send `\"2\"` for an integer or omit a required field.",
+          "short": "Without strict mode, the tool only guides Claude, which may send wrong types or skip fields."
+        },
+        {
+          "topic": "Strict mode mechanism",
+          "note": "`strict: true` compiles the schema into a grammar that constrains token sampling, so tool inputs always match the schema, the tool name is valid, and strict schemas carry `additionalProperties: false` so no undeclared keys appear.",
+          "short": "`strict: true` forces tool inputs to always match the schema, with no extra keys."
+        },
+        {
+          "topic": "JSON outputs alternative",
+          "note": "`output_config.format` uses the same constrained decoding but involves no tool call: the schema-valid JSON comes back inside a text block. It fits cases where all you need is a fixed JSON shape.",
+          "short": "Using `output_config.format` returns schema-valid JSON as plain text, without calling any tool."
+        },
+        {
+          "topic": "`auto` is not a guarantee",
+          "note": "Under `auto` Claude may skip the tool: in a cookbook test it replied in text that it could not assess sentiment, or called a calculator instead; 'use the tool' in the prompt raises the odds but is still only a request.",
+          "short": "With `auto`, Claude may skip the tool; asking in the prompt helps but guarantees nothing."
+        },
+        {
+          "topic": "`any` for unknown types",
+          "note": "With several extraction schemas (e.g. `bug_report`, `feature_request`, `billing_issue`) and the type unknown, `{\"type\": \"any\"}` lets Claude pick the schema while forbidding a plain-text answer, avoiding regex misrouting into the wrong forced schema.",
+          "short": "With many schemas and an unknown type, `any` lets Claude choose one but blocks plain text."
+        },
+        {
+          "topic": "Forced tool for ordering",
+          "note": "When one step must happen first (e.g. `extract_metadata` before `translate_text` or `summarize_document`), force it with `{\"type\": \"tool\", \"name\": \"extract_metadata\"}`; `any` could choose another tool, `auto` might call none, `none` disables tools.",
+          "short": "To make one tool run first, force it by name; `any` or `auto` can't promise that."
+        },
+        {
+          "topic": "Cost of forcing",
+          "note": "Under `any` or a forced tool, the assistant turn is prefilled by the API and the response starts with the `tool_use` block, so there is no natural-language preamble even when one is requested, and no thinking block. Pairing `auto` with an instruction permits reasoning but gives up the guarantee.",
+          "short": "Forcing a tool means no text intro and no thinking; `auto` allows reasoning but drops the guarantee."
+        },
+        {
+          "topic": "Model caveat",
+          "note": "`any` and forced `tool` return a 400 error on Claude Sonnet 5.5, Opus 5.5, Mythos 5.1 and Fable 5.1. The documented alternative there is to use `auto`, turn on strict tool use and name the tool in the prompt, although the exam still treats forcing as the guarantee.",
+          "short": "Some newer models reject forced tools with a 400 error; there, use `auto` plus strict mode."
+        },
+        {
+          "topic": "Required fields cause fabrication",
+          "note": "A required field asserts the value exists, and strict mode enforces that even when the document lacks it, so the only valid output is invented; make such fields optional and nullable (e.g. `apr_disclosed` as `boolean | null` separates 'could not tell' from false).",
+          "short": "A required field makes Claude invent missing values, so make it optional and allow null."
+        },
+        {
+          "topic": "Enum escape values",
+          "note": "Closed enums give clean values but must cover reality: add `other` with a free-text detail field (e.g. `category_detail`) for unanticipated categories and `unclear` for undeterminable ones; null on optional fields covers information that is simply absent.",
+          "short": "Add `other` and `unclear` to enums so unexpected or unknown cases still have a valid value."
+        },
+        {
+          "topic": "Normalize in the prompt",
+          "note": "When the source mixes formats (for example dates written 2026.03.14, 03/14/2026 or 14-Mar-2026), leave the schema strict and spell out the conversion rule, such as convert to YYYY-MM-DD, in the system prompt or the field description, optionally adding `input_examples`.",
+          "short": "For mixed formats like dates, keep the schema strict and write the conversion rule in the prompt."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "If you request it, Claude can still write out its reasoning as text ahead of the tool call even when `tool_choice` is forced.",
+          "why": "Forcing makes the API prefill the assistant turn so the response starts with the `tool_use` block; no preamble text or thinking block is produced, whatever the prompt says.",
+          "fix": "Forcing guarantees the call but no prior reasoning; if reasoning first is required, use `auto` with an instruction and accept the call is no longer guaranteed."
+        },
+        {
+          "trap": "Registering `extract_metadata` among the tools and setting `tool_choice` to `any` is sufficient to guarantee it runs first.",
+          "why": "`any` only requires that some tool is called; Claude still chooses which, so it could pick `summarize_document` first.",
+          "fix": "Use `{\"type\": \"tool\", \"name\": \"extract_metadata\"}` to guarantee that specific tool."
+        },
+        {
+          "trap": "The more fields you mark required, the more complete and reliable the extraction becomes.",
+          "why": "Strict mode enforces required fields even when the source lacks the value, so the model must invent one to stay schema-valid.",
+          "fix": "Make fields that may be missing optional and nullable, and use `other`/`unclear` escapes in enums."
+        },
+        {
+          "trap": "An extraction whose records all pass strict schema validation can be trusted as correct.",
+          "why": "Strict mode checks structure only; a valid but wrong enum value, a value in the wrong field, or line items that do not sum to the total all pass.",
+          "fix": "Add semantic checks in your own code after extraction and feed failures back to Claude."
+        }
+      ],
+      "exam_tips": [
+        "For the exam, forcing `tool_choice` is how you guarantee one specific extraction. Know, though, that `any` and `tool` produce a 400 error on Claude Sonnet 5.5, Opus 5.5, Mythos 5.1 and Fable 5.1, where the documented workaround is to use `auto`, turn on strict tool use, and name the tool in the prompt."
+      ],
+      "facts": [
+        {
+          "item": "`input_schema`",
+          "detail": "The tool definition key holding the JSON Schema that, for extraction, is the output record shape."
+        },
+        {
+          "item": "`stop_reason`: `tool_use`",
+          "detail": "Signals Claude called a tool; the result lives in the `tool_use` block's `input`."
+        },
+        {
+          "item": "`strict: true`",
+          "detail": "Compiles the schema into a grammar so tool inputs always match it and the tool name is valid."
+        },
+        {
+          "item": "`additionalProperties: false`",
+          "detail": "Set on strict schemas so Claude cannot add undeclared keys."
+        },
+        {
+          "item": "`output_config.format`",
+          "detail": "JSON outputs feature returning schema-valid JSON in a text block without any tool call."
+        },
+        {
+          "item": "`{\"type\": \"auto\"}`",
+          "detail": "Claude decides whether and which tool to call; text before a tool call is allowed; no guarantee."
+        },
+        {
+          "item": "`{\"type\": \"any\"}`",
+          "detail": "Some provided tool must be called, Claude picks which; no text before the `tool_use` block."
+        },
+        {
+          "item": "`{\"type\": \"tool\", \"name\": ...}`",
+          "detail": "The named tool must be called; no text or thinking before the `tool_use` block."
+        },
+        {
+          "item": "`{\"type\": \"none\"}`",
+          "detail": "Tools are disabled for the turn; text only."
+        },
+        {
+          "item": "400 error on newest models",
+          "detail": "Sonnet 5.5, Opus 5.5, Mythos 5.1 and Fable 5.1 reject `any` and forced `tool`; instead use `auto` + strict + tool named in prompt."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Extraction tool",
+          "def": "A never-executed tool whose input schema defines the structured record Claude returns."
+        },
+        {
+          "term": "Strict tool use",
+          "def": "Constrained decoding that guarantees tool inputs conform to the declared schema."
+        },
+        {
+          "term": "Syntax error",
+          "def": "A structural defect such as malformed JSON, a wrong type, a missing required key or an undeclared property."
+        },
+        {
+          "term": "Semantic error",
+          "def": "Output that is structurally valid but wrong about the source document."
+        },
+        {
+          "term": "Escape value",
+          "def": "An enum option like `other` or `unclear` that gives the model a correct choice when no listed category fits."
+        },
+        {
+          "term": "Nullable field",
+          "def": "A field that may hold null so 'not in the document' is an explicit, visible answer."
+        },
+        {
+          "term": "JSON outputs",
+          "def": "Schema-constrained JSON returned in a text block via `output_config.format`, with no tool involved."
+        }
+      ]
+    },
+    {
+      "code": "4.4",
+      "task": "Implement validation, retry, and feedback loops for extraction quality",
+      "summary": "This lesson is about checking extracted data and fixing what is wrong. A result can match the schema yet still be wrong in meaning, so your own code validates it, and a retry sends back the document, the failed output and specific errors. The exam tests which failures a retry can fix, and when to stop and route the case to a person instead.",
+      "key_concept": {
+        "term": "Retry with error feedback",
+        "definition": "When your code finds that an extraction fails validation, it issues a follow-up request carrying the source document, the rejected output and the exact errors, letting the model fix its answer by checking the source. This repairs mistakes in how the output was put together; it cannot supply information the source lacks.",
+        "short": "When validation fails, send back the source, bad output and exact errors; this can't add missing data."
+      },
+      "notes": [
+        {
+          "topic": "Parses is not correct",
+          "note": "Constrained decoding means no retries are needed for malformed syntax, but semantic errors remain: a date of birth under the wrong object, or a total that disagrees with its own line items, each field valid on its own.",
+          "short": "Strict decoding fixes broken syntax, but values can still be wrong, like totals that don't add up."
+        },
+        {
+          "topic": "Validation layer owns the rest",
+          "note": "Every rule the schema cannot express must be checked in your code after the response; SDK helpers already work this way, stripping constraints like `minimum` from the schema sent to Claude and checking them afterwards.",
+          "short": "Your code must check every rule the schema can't express after the response comes back."
+        },
+        {
+          "topic": "Tighter schema does not help",
+          "note": "A numeric range or pattern on a total cannot catch a mismatch because a wrong total like $1,250 is still a valid amount; it is wrong only relative to the other fields.",
+          "short": "A tighter schema can't catch a wrong total, because the number is still a valid amount."
+        },
+        {
+          "topic": "Self-correction fields",
+          "note": "Have the model extract `stated_total` (the printed figure) and `calculated_total` (its own sum of the extracted line items) so your validator can compare them, a lightweight self-check that needs no second model re-reading the document.",
+          "short": "Extract both `stated_total` and `calculated_total` so your code can compare them as a cheap self-check."
+        },
+        {
+          "topic": "`conflict_detected` flag",
+          "note": "Lets the model report that the document itself is inconsistent (e.g. summary page vs remittance slip) instead of silently picking one value. A mismatch with the flag false suggests an extraction error worth retrying; with the flag true, retrying will not help.",
+          "short": "`conflict_detected` lets the model flag a document that contradicts itself; then retrying won't help."
+        },
+        {
+          "topic": "Feed errors back",
+          "note": "As in an agent loop where a failed call returns a `tool_result` with `is_error: true` so the model can adjust, an extraction retry passes the validator's failures back as feedback instead of discarding them.",
+          "short": "Send the validator's errors back to the model as feedback instead of throwing them away."
+        },
+        {
+          "topic": "What a retry must contain",
+          "note": "Retries frequently go out as a new Messages API request that remembers nothing of the first one, so send the original document (to verify against the source), the failed extraction (to preserve what was right) and concrete errors like 'stated_total is 980, but line items add up to 940'.",
+          "short": "A retry remembers nothing, so send the original document, the failed output and the specific errors."
+        },
+        {
+          "topic": "Vague errors are useless",
+          "note": "Telling the model 'the output was invalid, try again' leaves it with nothing actionable; express every error as a specific fact that names the field and what is wrong with it.",
+          "short": "'Invalid, try again' is useless; name each wrong field and say exactly what is wrong."
+        },
+        {
+          "topic": "When the loop fits",
+          "note": "Generate-and-evaluate succeeds because failures can be tested against clear criteria and feedback makes the output better. Limit the number of attempts: if the first targeted retry does not fix a failure, that failure usually falls into a different category.",
+          "short": "Retries work when errors are clearly testable; limit attempts, because a repeat failure means a different problem."
+        },
+        {
+          "topic": "Retryable failures",
+          "note": "Mis-summed line items, format mismatches and values put in the wrong object can be fixed, because the right answer exists in the source and the feedback directs the model to it.",
+          "short": "Retry fixes errors like wrong sums or formats, because the right answer is in the source."
+        },
+        {
+          "topic": "Non-retryable failures",
+          "note": "If a field was blank on the form or the value exists only in a document never sent to the pipeline, no retry can produce it; pressing the model to populate a required field whose value it cannot locate drives it to make one up.",
+          "short": "If the value isn't in the document, no retry can find it; pushing makes the model invent one."
+        },
+        {
+          "topic": "Why the usual fixes fail",
+          "note": "A stricter schema or sample format only shapes a nonexistent value, a higher-resolution scan helps only unreadable (not blank) fields, and a bigger model just sees the same empty box; stop, explain, and route to a person or supply the missing document.",
+          "short": "Stricter schemas, better scans or bigger models can't fill a blank field; stop and route to a person."
+        },
+        {
+          "topic": "Agent SDK retry limit",
+          "note": "When the Agent SDK exhausts its attempts it returns the `error_max_structured_output_retries` result subtype, which your code must handle; schema fields that may be missing should be optional or nullable with explicit permission to say so.",
+          "short": "When the Agent SDK runs out of retries, handle `error_max_structured_output_retries` in your code."
+        },
+        {
+          "topic": "Construct-level feedback loop",
+          "note": "Add a `detected_pattern` field naming the construct that triggered each finding (SQL string concatenation, a call to the sanitization helper, a validation regex) and log it with every dismissal to get dismissal rates per construct, then fix the prompt criterion for the worst one. `dismissal_reason`, confidence scores and severity tiers cannot do this.",
+          "short": "Log a `detected_pattern` with each dismissal to find the noisiest code pattern, then fix its rule."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Strict tool use ensures the output complies with the schema, which means the extracted values are right and no more validation is needed.",
+          "why": "Strict mode guarantees types and required keys only; misplaced values and cross-field disagreements are individually valid and pass.",
+          "fix": "Run semantic checks in your own code (e.g. recompute sums, check object placement) after extraction."
+        },
+        {
+          "trap": "If individually valid fields contradict each other, the fix is a tighter schema, extra worked examples, or a retry at temperature 0 that takes the first valid response.",
+          "why": "Each value is valid on its own, so none of these detects the mismatch; it is wrong only relative to the other fields.",
+          "fix": "After extraction, run a semantic check, for example adding up the line items again and checking the result against the stated total."
+        },
+        {
+          "trap": "Since the model remembers what it extracted, a retry message can consist of just the validation errors.",
+          "why": "A retry is often a new request with nothing carried over; without the document the model just rearranges its old JSON, and without the failed output it cannot keep the correct parts.",
+          "fix": "Include all three in one request: the specific validation errors, the failed extraction and the original document."
+        },
+        {
+          "trap": "A required field that stays empty through several retries will get filled sooner or later by tightening the schema, rescanning at higher sharpness or switching to a bigger model.",
+          "why": "If none of the model's inputs contain the value, these measures can only shape or reread something that does not exist, and they nudge the model into fabricating it.",
+          "fix": "Stop retrying, make the field optional or nullable, and escalate to a person or supply the missing document."
+        },
+        {
+          "trap": "To work out which findings developers reject as false positives, adding a `dismissal_reason` field or a confidence field is sufficient.",
+          "why": "A dismissal reason says why findings were rejected but not which code triggered them, and confidence describes the model's certainty, not the construct.",
+          "fix": "Add a `detected_pattern` field naming the code construct and log it with each dismissal."
+        }
+      ],
+      "exam_tips": [
+        "When each field passes on its own yet the values contradict one another, pick the option that adds a semantic check in your own code, for instance recalculating a sum and checking it against the stated total. A tighter schema, more prompt examples or a temperature-0 retry are distractors, since none of them catches the mismatch.",
+        "Start by asking where the failure originates. A value that is present in the supplied document but has the wrong form or sits in the wrong place calls for a retry with feedback. A value absent from everything the model was given means the answer is to stop and escalate; options that keep retrying, move to a larger model or enhance the image are wrong."
+      ],
+      "facts": [
+        {
+          "item": "`stated_total`",
+          "detail": "Self-correction field holding the total as printed on the document."
+        },
+        {
+          "item": "`calculated_total`",
+          "detail": "Self-correction field holding the model's own sum of the extracted line items, compared against `stated_total` by your validator."
+        },
+        {
+          "item": "`conflict_detected`",
+          "detail": "Boolean the model sets when the source document itself contains contradictory values."
+        },
+        {
+          "item": "`is_error: true`",
+          "detail": "Key on a `tool_result` that tells Claude the call failed, so Claude reads the error and fixes its next attempt."
+        },
+        {
+          "item": "`error_max_structured_output_retries`",
+          "detail": "Agent SDK result subtype returned when structured-output retries are exhausted; your code must handle it."
+        },
+        {
+          "item": "`detected_pattern`",
+          "detail": "Finding field naming the code construct that triggered it, enabling dismissal rates per construct."
+        },
+        {
+          "item": "`minimum` in SDK helpers",
+          "detail": "Example of a constraint SDK helpers remove from the schema Claude receives and verify in code afterwards."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Semantic error",
+          "def": "A schema-valid value that is wrong relative to the source or to other fields."
+        },
+        {
+          "term": "Validation layer",
+          "def": "Your post-extraction code that enforces every rule the schema cannot express."
+        },
+        {
+          "term": "Self-correction fields",
+          "def": "Extra output fields like `stated_total` and `calculated_total` that expose discrepancies for code to check."
+        },
+        {
+          "term": "Retry with error feedback",
+          "def": "A follow-up request carrying the document, the failed output and specific errors so the model can fix them."
+        },
+        {
+          "term": "Escalation",
+          "def": "Stopping automated retries and routing the record to a person who can obtain the missing information."
+        },
+        {
+          "term": "Generate-and-evaluate loop",
+          "def": "A pattern where output is checked against clear criteria and feedback drives the next attempt."
+        },
+        {
+          "term": "Dismissal analysis",
+          "def": "Grouping developer-dismissed findings by a construct label to find which prompt criterion causes false positives."
+        }
+      ]
+    },
+    {
+      "code": "4.5",
+      "task": "Design efficient batch processing strategies",
+      "summary": "This lesson covers the Message Batches API, which halves the cost of large workloads but promises nothing about when each result arrives inside a 24-hour window. It explains when batching fits and when a waiting user or merge gate needs the normal API, plus `custom_id` matching, size limits, timing submissions around an SLA, and resubmitting only failed requests. Exam scenarios usually turn on whether anything is waiting.",
+      "key_concept": {
+        "term": "Batch as a delivery contract",
+        "definition": "The Message Batches API is half price in exchange for giving no promise on when any individual result will arrive. Each request is handled on its own and may complete at any moment inside the 24-hour expiry window; only `custom_id` links a result back to its input.",
+        "short": "Batches cost half price but results can come any time within 24 hours; match them by `custom_id`."
+      },
+      "notes": [
+        {
+          "topic": "What a batch is",
+          "note": "A list of ordinary Messages API requests submitted together and processed asynchronously: create, poll status, then download results. Each request is independent, so a batch can mix plain prompts, system prompts, multi-turn histories and images.",
+          "short": "A batch is many normal requests sent together and processed later: create, check status, then download."
+        },
+        {
+          "topic": "Cost",
+          "note": "All batch usage (input, output and special tokens) is billed at 50% of standard prices, and prompt caching discounts still apply on top; ten requests costing about $0.74 synchronously come to about $0.37 as a batch.",
+          "short": "Batch usage costs 50% of normal prices, and prompt caching discounts still apply."
+        },
+        {
+          "topic": "Request structure and `custom_id`",
+          "note": "Each request is a `custom_id` plus a `params` object of standard Messages parameters; `custom_id` must be unique within the batch, 1-64 characters, and only letters, digits, hyphens and underscores (`doc-2026-report_final` passes, `doc/2026/report:final` fails).",
+          "short": "Each request has a unique `custom_id` of up to 64 letters, digits, hyphens or underscores, plus `params`."
+        },
+        {
+          "topic": "Rejected parameters",
+          "note": "`stream: true` (results come back as a file), `speed` (Fast mode tunes synchronous latency) and `max_tokens: 0` (a cache entry would likely expire before the follow-up) all cause validation errors inside a batch.",
+          "short": "`stream: true`, `speed` and `max_tokens: 0` aren't allowed in batches and cause validation errors."
+        },
+        {
+          "topic": "Per-batch limits",
+          "note": "One batch can take up to 100,000 requests or up to 256 MB, whichever ceiling is hit first, and going over either one returns `413 request_too_large`. 150,000 invoices therefore need two batches at minimum, and more if images make the payload exceed 256 MB.",
+          "short": "One batch holds up to 100,000 requests or 256 MB; going over returns a 413 error."
+        },
+        {
+          "topic": "Split even below caps",
+          "note": "Smaller batches are easier to manage and shrink recovery scope: when one fails or expires, only that batch needs rework.",
+          "short": "Use smaller batches even under the limits, so a failure means less work to redo."
+        },
+        {
+          "topic": "Rate limits",
+          "note": "Batches have no per-hour request cap. HTTP calls and queued requests fall under their own rate limits, and batch usage leaves your Messages API rate limits untouched.",
+          "short": "Batches have their own rate limits and don't use up your Messages API limits."
+        },
+        {
+          "topic": "No latency SLA",
+          "note": "The only timing promise is that results are available when all requests finish or after 24 hours, whichever comes first, with unprocessed requests expiring; duration depends on batch size, demand and your volume, and more requests expire under heavy load.",
+          "short": "No timing promise: results may take up to 24 hours, and unfinished requests expire."
+        },
+        {
+          "topic": "Is anything blocked?",
+          "note": "Blocking work (pre-merge gate, a user waiting in chat) belongs on the synchronous Messages API; non-blocking work (nightly test generation, weekly audits, overnight reports) should take the batch discount. Letting a gate pass while a verdict arrives later as a comment defeats the gate.",
+          "short": "If anyone is waiting on the result, use the normal API; otherwise use batches for the discount."
+        },
+        {
+          "topic": "No client-side tool loops",
+          "note": "A batch request is single-shot, so no client is present to run your tool and return a `tool_result`; tool definitions, prior turns and server tools like web search are fine, and `stop_reason: \"pause_turn\"` means a new request is needed to continue. Batch the single-pass step (e.g. claims triage), keep the agent synchronous.",
+          "short": "A batch request runs once, so it can't run tool loops; keep agents on the normal API."
+        },
+        {
+          "topic": "Submission cadence from SLA",
+          "note": "Worst case = submission interval + 24 hours, so interval must be at most SLA minus 24 hours: a 48-hour SLA allows nightly runs, a 30-hour SLA calls for about every 4 hours (leaving slack for overhead). Very large `max_tokens` requests can run over an hour, so plan on the full window.",
+          "short": "Worst case is your send gap plus 24 hours, so keep the gap under SLA minus 24 hours."
+        },
+        {
+          "topic": "Reading results",
+          "note": "`processing_status` moves from `in_progress` to `ended`; results download as a `.jsonl` file with one line per request in no guaranteed order, so join on `custom_id`. Only `succeeded` results are billed; `errored`, `canceled` and `expired` are not.",
+          "short": "Results come as a `.jsonl` file in any order, so match each one by `custom_id`."
+        },
+        {
+          "topic": "Resubmit only failures",
+          "note": "Failures do not affect other requests and submitted batches cannot be edited, so create a new batch with only the failed `custom_id`s, each carrying a fix; resubmitting unchanged only helps with transient failures such as expiry or internal server errors. Oversized inputs (`prompt is too long`) must be split into chunks with derived IDs.",
+          "short": "Put only failed requests, each fixed, in a new batch, because sent batches can't be edited."
+        },
+        {
+          "topic": "Silent failures cost most",
+          "note": "You still pay for a request that succeeds but returns a wrong or poorly formatted answer, and the cycle is wasted. Dry-run the request shape on the synchronous API, then tune the prompt against an eval using a representative sample, before batching tens of thousands.",
+          "short": "Wrong but successful answers still cost money, so test the request and prompt before batching thousands."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Any human-readable label works as a `custom_id`, even one containing hashes, colons, slashes or spaces.",
+          "why": "`custom_id` must match `^[a-zA-Z0-9_-]{1,64}$`, so dots, hashes, colons, slashes and spaces are all rejected by validation.",
+          "fix": "Use only letters, digits, hyphens and underscores, unique within the batch, e.g. `doc-2026-report_final`."
+        },
+        {
+          "trap": "Since most batches complete in under an hour, polling a batch until it finishes works well for a blocking check such as a pre-merge gate.",
+          "why": "The only guarantee is completion or expiry within 24 hours, so a blocked developer's wait has no practical upper bound; you cannot plan around the typical case.",
+          "fix": "Use the synchronous Messages API and read the verdict directly from the response."
+        },
+        {
+          "trap": "Your application's tool-calling loop can run inside a batch request, with tools executed between turns until it finishes.",
+          "why": "A batch request is single-shot with no client present mid-request to execute your tool and return a `tool_result`; only server-side tools run inside it.",
+          "fix": "Keep the client tool loop on the synchronous API and batch only single-pass steps such as triage."
+        },
+        {
+          "trap": "Because results are returned in the order requests were submitted, line n of the output matches request n.",
+          "why": "The `.jsonl` result lines are not guaranteed to follow request order.",
+          "fix": "Match each result to its request by `custom_id`."
+        },
+        {
+          "trap": "If some requests fail, either rerun the entire batch or modify the failed requests inside the batch already submitted.",
+          "why": "Rerunning everything pays again for results you already have, and a submitted batch cannot be modified.",
+          "fix": "Submit a new batch containing only the failed `custom_id`s, each with a fix for its specific error."
+        },
+        {
+          "trap": "Batch usage counts against your Messages API rate limits, and batches are limited to 1,000 or 500 requests per hour.",
+          "why": "There is no hourly cap. A single batch may hold up to 100,000 requests and 256 MB, and separate limits govern batch usage.",
+          "fix": "Size batches against 100,000 requests / 256 MB; batch usage does not use Messages API rate limits."
+        }
+      ],
+      "exam_tips": [
+        "Any option saying batches allow only 1,000 or 500 requests an hour is wrong. Each batch can contain up to 100,000 requests and 256 MB, HTTP calls and queued requests have their own rate limits, and batch usage never draws down Messages API rate limits."
+      ],
+      "facts": [
+        {
+          "item": "50% discount",
+          "detail": "Batches cost half the standard price on all usage, and prompt caching discounts stack on top."
+        },
+        {
+          "item": "`^[a-zA-Z0-9_-]{1,64}$`",
+          "detail": "Required pattern for `custom_id`, which must also be unique within the batch."
+        },
+        {
+          "item": "100,000 requests or 256 MB",
+          "detail": "Per-batch limits, whichever is reached first; both apply."
+        },
+        {
+          "item": "`413 request_too_large`",
+          "detail": "Error returned when a batch exceeds its size limits."
+        },
+        {
+          "item": "`stream: true`, `speed`, `max_tokens: 0`",
+          "detail": "Messages parameters rejected inside a batch with a validation error."
+        },
+        {
+          "item": "24-hour window",
+          "detail": "Results are ready when all requests finish or after 24 hours; unprocessed requests expire."
+        },
+        {
+          "item": "`processing_status`",
+          "detail": "Batch status that goes from `in_progress` to `ended`, after which `.jsonl` results can be downloaded."
+        },
+        {
+          "item": "`succeeded` / `errored` / `canceled` / `expired`",
+          "detail": "The four result types; only `succeeded` is billed."
+        },
+        {
+          "item": "`400 invalid_request_error` (prompt is too long)",
+          "detail": "Input exceeds the context window and fails every time unless split; the token counting API can catch it beforehand."
+        },
+        {
+          "item": "`stop_reason: \"pause_turn\"`",
+          "detail": "A server-tool turn in a batch result did not finish; continuing requires a new request."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Message Batch",
+          "def": "A set of independent Messages API requests processed asynchronously at a 50% discount."
+        },
+        {
+          "term": "`custom_id`",
+          "def": "The per-request identifier that is the only link between a batch result and its input."
+        },
+        {
+          "term": "Expiry window",
+          "def": "The 24-hour limit after which unprocessed batch requests expire."
+        },
+        {
+          "term": "Worst-case delivery time",
+          "def": "Submission interval plus 24 hours, which must fit inside the promised SLA."
+        },
+        {
+          "term": "Single-shot request",
+          "def": "A request built fully up front with one result returned later, so no client-side tool loop can run."
+        },
+        {
+          "term": "Server tools",
+          "def": "Tools like web search that run on the platform side and therefore work inside batch requests."
+        },
+        {
+          "term": "Dry run",
+          "def": "Sending the request shape through the synchronous API first to catch validation errors before batching."
+        }
+      ]
+    },
+    {
+      "code": "4.6",
+      "task": "Design multi-instance and multi-pass review architectures",
+      "summary": "This lesson explains why a session reviewing its own code rarely catches its mistakes, and why a fresh Claude instance with a clean context gives a truly independent review. It also covers splitting large reviews into one focused pass per file plus an integration pass that traces data across files, and letting a broad finding pass report everything before a later check drops weak findings. Distractors suggest resuming the writer.",
+      "key_concept": {
+        "term": "Independent review instance",
+        "definition": "A second Claude instance that reviews work without inheriting any of the reasoning, context or shortcuts from the session that wrote it. Its independence is a product of starting with a clean context; switching to another model or raising the thinking budget does not supply it.",
+        "short": "A second Claude with a clean context reviews the work; independence comes from that, not more thinking."
+      },
+      "notes": [
+        {
+          "topic": "Why self-review is weak",
+          "note": "The generating session still holds its chosen plan, the edge cases it scoped out and its shortcuts, so it reviews code alongside reasons it already accepted and seldom challenges them.",
+          "short": "The writing session still trusts its own plan and shortcuts, so it rarely questions them in review."
+        },
+        {
+          "topic": "Polluted context",
+          "note": "Claude Code best practices note that a session corrected repeatedly degrades because its context fills with failed approaches; a self-review step has the same problem, and the guidance is to have a fresh verification subagent try to refute the result.",
+          "short": "A session full of failed tries gets worse, so use a fresh subagent to check the result."
+        },
+        {
+          "topic": "Thinking is not independence",
+          "note": "Turning on extended thinking, giving stricter self-review instructions, or running another review round inside the same conversation each layer more reasoning over the original reasoning, which stays in place.",
+          "short": "More thinking, stricter self-review or another round in the same chat still builds on the old reasoning."
+        },
+        {
+          "topic": "Same model, different context",
+          "note": "In Claude Managed Agents, the Outcomes grader is a freshly created grader that shares the writer's model and tools; the context is the only difference, and that difference is the source of its independence.",
+          "short": "A grader can use the same model and tools; only its fresh context makes it independent."
+        },
+        {
+          "topic": "Writer/Reviewer split",
+          "note": "Session A implements, Session B (which never saw the work) reviews with a concrete brief such as edge cases, race conditions and consistency with existing middleware patterns, and Session A then addresses the feedback.",
+          "short": "Session A writes the code, Session B reviews it with a clear brief, then A fixes issues."
+        },
+        {
+          "topic": "Never resume the generator",
+          "note": "Resuming the generating session or subagent keeps its carried context and bias; a long-lived session can anchor on old conclusions, so a PR-gating reviewer should start fresh every time.",
+          "short": "Never resume the writing session to review; a reviewer that gates PRs should start fresh every time."
+        },
+        {
+          "topic": "Criteria force evidence",
+          "note": "A fresh context is necessary but not sufficient: without criteria the default failure is a grader that approves everything. Name exactly what to verify (requirements implemented, edge cases tested, nothing out of scope changed), and use a dedicated subagent file for recurring domains like security.",
+          "short": "A fresh context isn't enough; give clear criteria, or the reviewer will approve everything."
+        },
+        {
+          "topic": "Attention budget",
+          "note": "One review of a twenty-file change spreads attention thin, since every token depletes a finite budget; sectioning gives each consideration its own LLM call for focused attention.",
+          "short": "One review of twenty files spreads attention thin; split it so each part gets focus."
+        },
+        {
+          "topic": "Per-file passes",
+          "note": "Each per-file pass reads one file and finds local problems (missing null check, off-by-one, unhandled exception) with full attention, but is blind to a value that is passed out of one file and misused in a different one.",
+          "short": "Per-file passes catch local bugs well but miss values that break across files."
+        },
+        {
+          "topic": "Integration pass",
+          "note": "A distinct cross-file pass reads the data-sharing files side by side and follows the flow over the boundary between them, catching what per-file passes miss.",
+          "short": "A separate cross-file pass follows data between files and catches what per-file passes miss."
+        },
+        {
+          "topic": "Conflicting per-file findings",
+          "note": "Contradictory per-file recommendations signal a missing integration pass; re-running local passes repeats the limited view, asking the generator restores its bias, and merging files undoes the split and dilutes attention.",
+          "short": "Conflicting per-file findings mean you need an integration pass, not more per-file runs."
+        },
+        {
+          "topic": "Scaling the fan-out",
+          "note": "For hundreds of files, do not run per-file passes as turns in one conversation (it fills up and dilutes again); script a headless `claude -p` call for every file, each starting from a fresh context, and afterwards run the integration passes.",
+          "short": "For hundreds of files, run a fresh `claude -p` call per file, then run integration passes."
+        },
+        {
+          "topic": "Separate finding from filtering",
+          "note": "Telling a finding pass 'only high-severity' or 'be conservative' makes it silently drop findings below the bar, so precision rises but recall falls; the finding pass should aim for coverage, reporting every issue with confidence and severity.",
+          "short": "Don't tell the finding pass to be cautious; it should report every issue with confidence and severity."
+        },
+        {
+          "topic": "Verification pass",
+          "note": "A separate verification pass checks each reported finding against actual code behavior and discards those that do not hold up; per-finding confidence also drives routing, and it often helps to take confidence filtering out of the finding step.",
+          "short": "A separate verification pass checks each finding against the real code and drops false ones."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "An independent review is no different from raising extended thinking or asking the session that generated the code to critically re-examine its own design decisions.",
+          "why": "Because the reflection happens in the very context that produced the code, it falls back on the same justifications it is meant to be checking.",
+          "fix": "Send the code to a separate instance with a fresh context (same model is fine) given only the code and requirements."
+        },
+        {
+          "trap": "Since it is a subagent, picking the code-generating subagent's session back up and having it review its own diff qualifies as an independent review.",
+          "why": "A resumed session carries all of its prior context, so it keeps the generator's reasoning and anchors on old conclusions.",
+          "fix": "Start a fresh review subagent or second session that receives only the diff and the plan."
+        },
+        {
+          "trap": "A disagreement between two per-file passes is best settled by the original generator, since it knows the reasons behind how the code was written.",
+          "why": "That returns the review to the author, bias included; the passes conflict because each one saw only half of a bug that spans files.",
+          "fix": "Add a cross-file integration pass that reads the two files side by side and proposes a single fix based on the actual data flow."
+        },
+        {
+          "trap": "A multi-pass review gets better if the finding pass is told to 'only report high-severity issues' or to 'be conservative', because noise is removed early.",
+          "why": "The finding pass then silently drops real issues below the bar, lowering recall, and the later verification pass never sees them.",
+          "fix": "Have the finding pass report every issue with confidence and severity, and let a separate verification pass filter."
+        },
+        {
+          "trap": "Code Review in Claude Code works as a quick merge gate, approving or blocking each pull request.",
+          "why": "Code Review posts comments only, never approving or blocking, and averages about 20 minutes per review.",
+          "fix": "Choose Code Review when independently verified findings are wanted and the team accepts the wait and usage-credit cost."
+        }
+      ],
+      "exam_tips": [
+        "Choose Claude Code's Code Review when the scenario requires findings to be independently checked before anyone reads them and the team is fine with the cost and the wait. It runs agents in parallel, verifies findings, deduplicates them and ranks them by severity, takes roughly 20 minutes on average and bills through usage credits; it comments on the PR but never approves or blocks it."
+      ],
+      "facts": [
+        {
+          "item": "`claude -p`",
+          "detail": "Non-interactive (headless) Claude Code invocation; one call per file gives each pass a fresh context."
+        },
+        {
+          "item": "`--allowedTools` / `--permission-mode dontAsk`",
+          "detail": "Flags used in the documented per-file fan-out loop to preset allowed tools and skip permission prompts."
+        },
+        {
+          "item": "Code Review pipeline",
+          "detail": "Parallel agents analyze the diff and a verification step checks findings against code; the findings are then deduplicated, sorted by severity, and posted inline."
+        },
+        {
+          "item": "About 20 minutes on average",
+          "detail": "Typical Code Review completion time; billed through usage credits; never approves or blocks a PR."
+        },
+        {
+          "item": "Outcomes grader",
+          "detail": "Claude Managed Agents grader, created fresh and sharing the writer's model and tools; only its context makes it independent."
+        },
+        {
+          "item": "`PLAN.md`",
+          "detail": "Plan file a review subagent checks a diff against in the documented example prompt."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Independent review instance",
+          "def": "A reviewer with a clean context that never saw the generator's reasoning."
+        },
+        {
+          "term": "Writer/Reviewer split",
+          "def": "One session implements, a separate session reviews, and the writer addresses the feedback."
+        },
+        {
+          "term": "Sectioning",
+          "def": "Handling each consideration in a separate LLM call to keep attention focused."
+        },
+        {
+          "term": "Per-file pass",
+          "def": "A review pass over a single file looking for local defects."
+        },
+        {
+          "term": "Integration pass",
+          "def": "A cross-file pass tracing data flow between files that share data."
+        },
+        {
+          "term": "Finding pass",
+          "def": "A coverage-first stage that reports every possible issue with confidence and severity."
+        },
+        {
+          "term": "Verification pass",
+          "def": "A later stage that checks each finding against actual code and filters out false positives."
+        },
+        {
+          "term": "Attention budget",
+          "def": "The finite attention a context has, depleted by every added token."
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "title": "`tool_choice` settings as extraction guarantees",
+      "columns": [
+        "Setting",
+        "Tool call guaranteed?",
+        "Text before tool_use",
+        "Use when"
+      ],
+      "rows": [
+        [
+          "`{\"type\": \"auto\"}`",
+          "No; Claude may answer in text or pick another tool",
+          "Allowed",
+          "You want reasoning before the call and can live without a guarantee (also the substitute on models that reject forcing)"
+        ],
+        [
+          "`{\"type\": \"any\"}`",
+          "Yes, but Claude picks which tool",
+          "Not emitted",
+          "Several extraction schemas and the document type is unknown in advance"
+        ],
+        [
+          "`{\"type\": \"tool\", \"name\": ...}`",
+          "Yes, the named tool",
+          "Not emitted (no thinking block either)",
+          "A specific extraction must run, e.g. `extract_metadata` before enrichment"
+        ],
+        [
+          "`{\"type\": \"none\"}`",
+          "No tools called",
+          "Text only",
+          "The turn must not call any tool"
+        ]
+      ]
+    },
+    {
+      "title": "Synchronous Messages API vs Message Batches API",
+      "columns": [
+        "Workload",
+        "Anything blocked waiting?",
+        "API",
+        "Why"
+      ],
+      "rows": [
+        [
+          "Code review that gates a merge",
+          "Yes: the merge is blocked until it finishes",
+          "Synchronous Messages API",
+          "Verdict needed in seconds; batches have no latency SLA"
+        ],
+        [
+          "User-facing chat reply",
+          "Yes, a person is waiting",
+          "Synchronous Messages API",
+          "Deadline-bound work stays synchronous"
+        ],
+        [
+          "Generating regression tests for 40,000 modules each night",
+          "No, reviewed next day",
+          "Message Batches API",
+          "Latency-tolerant and high volume, so 50% off all usage"
+        ],
+        [
+          "Weekly compliance audit report",
+          "No",
+          "Message Batches API",
+          "Finishes well before anyone reads it"
+        ],
+        [
+          "Multi-turn agent calling your own tools",
+          "Needs a client mid-request",
+          "Synchronous (batch only single-pass steps like triage)",
+          "Batch requests are single-shot; no client runs tools between turns"
+        ]
+      ]
+    },
+    {
+      "title": "Retry with feedback vs escalate",
+      "columns": [
+        "Failure",
+        "Answer in provided source?",
+        "Retry with feedback helps?",
+        "What to do"
+      ],
+      "rows": [
+        [
+          "Correct value placed in the wrong object",
+          "Yes",
+          "Yes, the error names the right location",
+          "Retry with document, failed output and the error"
+        ],
+        [
+          "Extracted line items do not add up, document is consistent",
+          "Yes",
+          "Usually, the model rereads and fixes the misread value",
+          "Retry with calculated and stated totals in the error"
+        ],
+        [
+          "Document prints two contradictory totals",
+          "Yes, but the values conflict",
+          "No, the contradiction is in the source",
+          "Human review with the conflict flagged (`conflict_detected`)"
+        ],
+        [
+          "Field left blank on the scanned form",
+          "No",
+          "No",
+          "Stop retrying, escalate, let the field be empty"
+        ],
+        [
+          "Value only in an external document never provided",
+          "No",
+          "No",
+          "Supply that document, or escalate"
+        ]
+      ]
+    },
+    {
+      "title": "Which review setups are independent",
+      "columns": [
+        "Setup",
+        "Sees generator's reasoning?",
+        "Independent review?"
+      ],
+      "rows": [
+        [
+          "Same session instructed to self-review",
+          "Yes",
+          "No"
+        ],
+        [
+          "The generating session, with more extended thinking",
+          "Yes",
+          "No"
+        ],
+        [
+          "Resumed session of the code-generating subagent",
+          "Yes, all carried context",
+          "No"
+        ],
+        [
+          "Session B (Reviewer) reading Session A's (Writer) output",
+          "No, only the code",
+          "Yes"
+        ],
+        [
+          "Fresh review subagent that receives the diff and plan",
+          "No, only what it is handed",
+          "Yes"
+        ]
+      ]
+    }
+  ]
+}

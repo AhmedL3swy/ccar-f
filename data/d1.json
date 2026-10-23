@@ -1,0 +1,1394 @@
+{
+  "domain": 1,
+  "title": "Agentic Architecture & Orchestration",
+  "weight": 27,
+  "intro": "This domain is about building agents with Claude: running the agentic loop, splitting work between a coordinator and subagents, decomposing big tasks, enforcing rules with hooks, and saving, resuming or forking sessions.",
+  "lessons": [
+    {
+      "code": "1.1",
+      "task": "Design and implement agentic loops for autonomous task execution",
+      "summary": "This lesson explains how an agentic loop works: send tools with the request, run what Claude asks for, return the results and repeat. One field, `stop_reason`, decides whether the loop continues or ends, and many exam traps involve stopping on the wrong signal. It also covers tool errors, iteration caps as a safety net, and how an agent differs from a fixed workflow.",
+      "key_concept": {
+        "term": "stop_reason-driven loop",
+        "definition": "One response field controls the whole agentic loop, which is simply a while loop: a `stop_reason` of `\"tool_use\"` means you execute the tools Claude asked for, add their results to the history and send another API request, while every other value stops the loop.",
+        "short": "One field, `stop_reason`, runs the loop: `\"tool_use\"` means run tools and call again; else stop."
+      },
+      "notes": [
+        {
+          "topic": "Tool use contract",
+          "note": "You declare the operations and their input schemas; Claude chooses when to call them but executes nothing itself. What reaches Claude is your schema and the result you send back, not your implementation.",
+          "short": "You describe the tools; Claude decides when to use them, but your code runs them."
+        },
+        {
+          "topic": "Five-step cycle",
+          "note": "Send the tools array with the user message; receive `stop_reason` `\"tool_use\"` with one or more `tool_use` blocks; execute each and build `tool_result` blocks; resend original messages, the assistant response and a user message of results; repeat while `stop_reason` stays `\"tool_use\"`.",
+          "short": "Send tools, get `tool_use` blocks, run them, send back `tool_result` blocks, and repeat."
+        },
+        {
+          "topic": "SDK turn",
+          "note": "In the Agent SDK, Claude evaluates the state and requests tools, the SDK runs them, and that full cycle counts as one turn.",
+          "short": "In the Agent SDK, one turn is Claude asking for tools and the SDK running them."
+        },
+        {
+          "topic": "Single control field",
+          "note": "Loop control depends on `stop_reason` and nothing else in the response: `\"tool_use\"` continues, every other value exits.",
+          "short": "Only `stop_reason` decides: `\"tool_use\"` keeps the loop going, anything else stops it."
+        },
+        {
+          "topic": "Exits are not all success",
+          "note": "`\"end_turn\"` is the natural finish, but `\"max_tokens\"`, `\"pause_turn\"` and `\"refusal\"` also end the loop for reasons your application must handle, so give each value its own branch.",
+          "short": "Not every stop is a success: handle `\"end_turn\"`, `\"max_tokens\"`, `\"pause_turn\"` and `\"refusal\"` each in its own way."
+        },
+        {
+          "topic": "First-turn end_turn",
+          "note": "If a question can be answered directly, a text-only `\"end_turn\"` on the very first request is a correct finish; there is no minimum number of tool calls.",
+          "short": "If Claude can answer right away, `\"end_turn\"` on the first call is fine; no tools needed."
+        },
+        {
+          "topic": "tool_use block fields",
+          "note": "Every `tool_use` block carries three fields: `id`, `name`, and an `input` conforming to the tool's `input_schema`. The matching `tool_result` goes in a `user`-role message and echoes that `id` back as `tool_use_id`.",
+          "short": "Each `tool_use` has `id`, `name` and `input`; the `tool_result` returns that `id` as `tool_use_id`."
+        },
+        {
+          "topic": "One result per call",
+          "note": "Every `tool_use` in the previous response must have a matching `tool_result` in the continuation message. Leave one out and the API refuses the request, since those tool_use ids are not immediately followed by their results.",
+          "short": "Every `tool_use` needs its own `tool_result` in the next message, or the API rejects it."
+        },
+        {
+          "topic": "Errors are results too",
+          "note": "When a tool fails (for example a network error), return the error text as the `tool_result` content with `\"is_error\": true` so Claude can explain the failure or retry with corrected input.",
+          "short": "If a tool fails, return the error with `\"is_error\": true` so Claude can explain or retry."
+        },
+        {
+          "topic": "No trailing text block",
+          "note": "Never place a text block after the `tool_result` blocks; from it Claude learns that the user will speak after each tool call, which can cause a premature, empty `\"end_turn\"`.",
+          "short": "Don't add a text block after `tool_result` blocks; it can make Claude stop early."
+        },
+        {
+          "topic": "Agent vs workflow",
+          "note": "A workflow runs LLMs and tools through predefined code paths; an agent lets the LLM direct its own process and tool use. Neither is ranked: workflows give predictability for well-defined tasks, agents give flexibility.",
+          "short": "Workflows follow fixed code paths and agents choose their own steps; neither is always better."
+        },
+        {
+          "topic": "Keep the loop mechanical",
+          "note": "In an agentic loop your code only executes Claude's requests, hands back the results and leaves `stop_reason` to signal when it is done; Claude decides each next step by reasoning about the history, and that decision can shift after every result.",
+          "short": "Your loop code just runs tools and returns results; Claude decides every next step."
+        },
+        {
+          "topic": "Text plus tool call",
+          "note": "A response can contain both narration (such as a sentence announcing a lookup) and a `tool_use` block with `stop_reason` `\"tool_use\"`; conversely an `\"end_turn\"` with no text can be legitimate.",
+          "short": "A reply can have text and a tool call together; an empty `\"end_turn\"` is also fine."
+        },
+        {
+          "topic": "Iteration cap is a backstop",
+          "note": "`max_turns` or `max_iterations` exist to stop runaway sessions; hitting one produces result subtype `error_max_turns` with no `result` field, meaning the task was cut off, not finished.",
+          "short": "`max_turns` is a safety stop; `error_max_turns` means the task was cut off, not finished."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "An `\"end_turn\"` is only a legitimate finish if the task has already called a tool at least once.",
+          "why": "The loop ends whenever Claude replies without tool calls; for a question it can answer directly, that happens on the first request and is the intended outcome, not a bug.",
+          "fix": "Treat any `\"end_turn\"` as completion, including on the first iteration; only `\"tool_use\"` keeps the loop running."
+        },
+        {
+          "trap": "The loop keeps working if you append just the assistant's text and leave out the `tool_use` and `tool_result` blocks.",
+          "why": "Claude can only use what is in the history it receives, and the API rejects a request in which `tool_use` ids are not followed by matching `tool_result` blocks.",
+          "fix": "Resend the assistant's full response including its `tool_use` blocks, then a user message with one `tool_result` per `tool_use_id`."
+        },
+        {
+          "trap": "Because it exchanges `tool_use` and `tool_result` blocks, a loop that runs the same tools in the same fixed sequence every time qualifies as an agent.",
+          "why": "What makes a system an agent is who picks the next action; a hard-coded sequence follows predefined code paths, which is the definition of a workflow, whatever message format it uses.",
+          "fix": "Call it a workflow; it is agentic only when Claude chooses the next action from its reasoning over the history."
+        },
+        {
+          "trap": "You should rely on `max_turns` to determine that an agentic loop has completed its work.",
+          "why": "The cap is a safeguard against runaway sessions; reaching it yields `error_max_turns` with no result and can cut off a task while `stop_reason` is still `\"tool_use\"`. A loop that routinely ends this way has the cap doing `stop_reason`'s job.",
+          "fix": "Terminate on `stop_reason` (anything other than `\"tool_use\"`) and keep `max_turns` only as a backstop."
+        },
+        {
+          "trap": "Whether to stop should be decided by looking for wording such as 'task complete' or 'I'm done' in Claude's reply.",
+          "why": "Matching prose is fragile; the documented rule is that a decision you would extract with a regex should have been structured, and for termination the structured signal already exists.",
+          "fix": "Branch on `stop_reason`, never on wording."
+        },
+        {
+          "trap": "Any response that includes text is Claude's final answer, so the loop is safe to end there.",
+          "why": "A `tool_use` block frequently arrives alongside a sentence of text, and such a response still carries `stop_reason` `\"tool_use\"`; ending the loop there drops the task halfway through a step.",
+          "fix": "Ignore whether text is present; continue on `\"tool_use\"`, stop on anything else."
+        }
+      ],
+      "exam_tips": [],
+      "facts": [
+        {
+          "item": "`stop_reason` `\"tool_use\"`",
+          "detail": "Claude is calling a tool: run it, return the result and iterate again."
+        },
+        {
+          "item": "`stop_reason` `\"end_turn\"`",
+          "detail": "Claude finished naturally: use the response, the loop is done."
+        },
+        {
+          "item": "`stop_reason` `\"max_tokens\"`",
+          "detail": "The response hit your `max_tokens` limit: raise the limit or continue the response."
+        },
+        {
+          "item": "`stop_reason` `\"pause_turn\"`",
+          "detail": "The iteration cap of a server-tool loop was hit: return the assistant content in a new request so it can carry on."
+        },
+        {
+          "item": "`stop_reason` `\"refusal\"`",
+          "detail": "Claude refused to answer: check `stop_details`, then send the request again using a fallback model."
+        },
+        {
+          "item": "`\"model_context_window_exceeded\"`",
+          "detail": "Appears as its own branch (handled as a context-limit case) in the documentation's example dispatcher on `stop_reason`."
+        },
+        {
+          "item": "`tool_use_id`",
+          "detail": "Field in a `tool_result` block that repeats the `id` of the `tool_use` it answers."
+        },
+        {
+          "item": "`\"is_error\": true`",
+          "detail": "Marks a `tool_result` whose content is an error message so Claude can explain it or retry."
+        },
+        {
+          "item": "`error_max_turns`",
+          "detail": "Result subtype when the turn limit is hit before the task finished; no `result` field is available."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Agentic loop",
+          "def": "The application-driven cycle of request, tool execution and result return, repeated while `stop_reason` is `\"tool_use\"`."
+        },
+        {
+          "term": "`stop_reason`",
+          "def": "Field on every Messages API response saying why Claude stopped generating, and the loop's only control signal."
+        },
+        {
+          "term": "`tool_use` block",
+          "def": "Claude's structured request to run a tool, carrying an `id`, a `name` and an `input`."
+        },
+        {
+          "term": "`tool_result` block",
+          "def": "Your answer to a tool call, placed in a user-role message and linked to its request by `tool_use_id`."
+        },
+        {
+          "term": "Workflow",
+          "def": "A system where predefined code paths coordinate the LLMs and tools."
+        },
+        {
+          "term": "Agent",
+          "def": "A system where the LLM itself dynamically steers both its process and how it uses tools."
+        },
+        {
+          "term": "Turn (Agent SDK)",
+          "def": "One full cycle of Claude deciding what to do and the SDK running the tools it requested."
+        }
+      ]
+    },
+    {
+      "code": "1.2",
+      "task": "Orchestrate multi-agent systems with coordinator-subagent patterns",
+      "summary": "This lesson covers the hub-and-spoke pattern, where one coordinator breaks a task into pieces, hands each to a subagent and merges the results. Since subagents never talk to each other, the coordinator must pass along everything they need. You also learn to split work so it covers the whole question, call only the subagents a request needs to save tokens, and refine the answer until nothing is missing.",
+      "key_concept": {
+        "term": "Hub-and-spoke coordinator",
+        "definition": "A single coordinator splits the task into pieces, assigns each piece to a subagent, then gathers and merges what comes back. Because subagents have no channel to one another, only the hub ever holds the full view.",
+        "short": "One coordinator splits work among subagents and merges the results; only it sees the full picture."
+      },
+      "notes": [
+        {
+          "topic": "Why spokes are blind",
+          "note": "A subagent runs in a separate conversation and returns nothing but its last message, so the only way one spoke's output affects another spoke's task is for the coordinator to copy it into the next delegation prompt.",
+          "short": "Subagents can't see each other; the coordinator must pass one's output to the next."
+        },
+        {
+          "topic": "Upstream user decisions",
+          "note": "A choice the user made turns ago in the main conversation is invisible to a subagent; the fix is to state it in the delegation prompt, not to resume the subagent, widen its tools or edit its system prompt.",
+          "short": "A subagent can't see earlier user choices, so write them in its task prompt."
+        },
+        {
+          "topic": "Observability",
+          "note": "Because every delegation and result passes through one agent, one transcript shows what was asked and returned; in Managed Agents each subagent also has its own session thread you can list and stream.",
+          "short": "All work goes through one agent, so one log shows every request and result."
+        },
+        {
+          "topic": "Consistent error handling",
+          "note": "Every result passes through the same checks at the hub, for example discarding empty responses. When a subagent reaches `maxTurns` its output comes back flagged as partial, and it is up to the coordinator to resume it, re-delegate the work or carry on without it.",
+          "short": "The coordinator checks all results the same way and decides what to do with partial ones."
+        },
+        {
+          "topic": "Controlled information flow",
+          "note": "A spoke gets nothing beyond what the coordinator decides to pass it, which keeps its context narrow and prevents subagents from swamping each other with updates.",
+          "short": "A subagent only gets what the coordinator gives it, which keeps its context small."
+        },
+        {
+          "topic": "Selection by description",
+          "note": "In the Agent SDK the developer defines which subagents exist and the coordinator decides when to call each, mainly from its `description`; a vague description means wrong-time calls or none at all.",
+          "short": "The coordinator picks subagents mostly by their `description`, so write it clearly."
+        },
+        {
+          "topic": "Full pipeline cost",
+          "note": "Every extra agent costs tokens: Anthropic measured multi-agent setups at roughly 3 to 10 times the tokens of a single agent, and early research agents spawned 50 subagents for simple queries.",
+          "short": "Each extra agent costs tokens; multi-agent setups can use 3 to 10 times more."
+        },
+        {
+          "topic": "Planning step first",
+          "note": "Begin with a cheap call that returns a structured plan (how complex the query is and which subagents it needs), then invoke only those spokes, as in the orchestrator-workers planning phase.",
+          "short": "Start with a cheap planning call, then run only the subagents the plan needs."
+        },
+        {
+          "topic": "Parallelism is not a cost fix",
+          "note": "Concurrent subagents cut wall-clock time down to that of the slowest one, yet you still pay for every one of them; what parallelism mostly buys is thoroughness, and in total a multi-agent system frequently runs longer.",
+          "short": "Running subagents in parallel saves time, not money; you still pay for each one."
+        },
+        {
+          "topic": "Keep the hub",
+          "note": "Letting one subagent (for example a classifier) call the others directly removes the coordinator and with it observability, uniform error handling and control of information flow.",
+          "short": "Don't let one subagent call others directly; you lose the coordinator's view and control."
+        },
+        {
+          "topic": "Coverage, not quality",
+          "note": "The facets list is the whole research scope; if decomposition yields a few narrow technical slivers, excellent subagent work still leaves unassigned areas missing, which is a coverage failure rather than thin results or premature synthesis.",
+          "short": "If the task split misses areas, good subagent work still leaves gaps in coverage."
+        },
+        {
+          "topic": "Good partition",
+          "note": "Facets must together cover the entire question and must not overlap; splitting by source type (filings, news, technical documentation) is a useful second axis within the same scope.",
+          "short": "Split the question into parts that cover everything and don't overlap."
+        },
+        {
+          "topic": "Refinement loop",
+          "note": "Each pass compares the synthesis with the original question, writes a targeted query per gap (not the broad one again), sends it to search or analysis subagents, then re-synthesises and re-checks coverage.",
+          "short": "After each round, compare results to the question and send focused searches for each gap."
+        },
+        {
+          "topic": "Stopping and reuse",
+          "note": "Agents tend to continue after they have enough, so give the coordinator an explicit sufficiency test backed by `maxTurns` and a session budget; in Managed Agents a follow-up to an earlier spoke's persistent thread keeps its prior context, whereas a fresh subagent knows only its prompt.",
+          "short": "Agents often keep going too long, so give the coordinator a clear stop rule and limits."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "When the `Agent` tool launches a subagent, the coordinator's previous turns are visible to it, so any decision the user made earlier flows through on its own.",
+          "why": "The subagent's conversation is separate and contains just its system prompt plus the delegation prompt from the coordinator; the user's earlier turn never entered it.",
+          "fix": "Have the coordinator write the decision (for example the chosen authentication provider) into the delegation prompt."
+        },
+        {
+          "trap": "The cure for a slow, full pipeline of subagents is to launch every one of them in parallel for each request.",
+          "why": "Parallel execution only shrinks wall-clock time to the slowest subagent; every subagent still runs and costs tokens on every input, including simple ones that never needed them.",
+          "fix": "Add a cheap analysis step that assesses each request and invokes only the subagents it requires."
+        },
+        {
+          "trap": "Research gets more thorough the more you split a broad topic into lots of small, highly detailed subtasks.",
+          "why": "Synthesis can only combine what spokes were assigned; narrow technical slivers leave whole areas such as pricing, regulation and competitors with no subagent, so the report has gaps despite accurate findings.",
+          "fix": "Partition so facets jointly cover the entire question without overlapping."
+        },
+        {
+          "trap": "After synthesising the first round of subagent results, the coordinator has nothing left to do.",
+          "why": "The first synthesis is a starting point: the lead agent checks it for missing, unsupported or contradictory parts and re-delegates targeted queries until coverage is sufficient.",
+          "fix": "Run an iterative refinement loop with an explicit coverage test plus hard caps such as `maxTurns` and a session budget."
+        },
+        {
+          "trap": "To pass the user's newest decision from the main conversation to a subagent, resume that subagent's previous session.",
+          "why": "A resumed subagent continues its own previous conversation, which never contained the user's turn in the main conversation.",
+          "fix": "Put the decision in the delegation prompt."
+        },
+        {
+          "trap": "Granting the subagent broader tool permissions gives it access to the coordinator's conversation history.",
+          "why": "A subagent's tools govern the actions it can take; they have no effect on which conversation is visible to it.",
+          "fix": "Pass the information explicitly in the delegation prompt."
+        },
+        {
+          "trap": "Ignored decisions go away if the subagent's system prompt includes a rule to follow whatever the user decided upstream.",
+          "why": "The system prompt sets role and expertise; it cannot make the subagent aware of a decision it was never given.",
+          "fix": "Include the decision itself in the prompt the coordinator sends."
+        }
+      ],
+      "exam_tips": [
+        "A subagent overlooking something the user stated earlier in the main conversation points to context isolation; the correct option has the coordinator include that information in its delegation prompt. Options that resume the session, broaden tool access or change the subagent's system prompt are distractors."
+      ],
+      "facts": [
+        {
+          "item": "`description` (subagent definition)",
+          "detail": "Natural-language statement of when to use the subagent; the main input the coordinator uses to decide whether to call it."
+        },
+        {
+          "item": "`maxTurns`",
+          "detail": "Sets the maximum number of agentic turns for a subagent; reaching it makes the subagent return output flagged as partial."
+        },
+        {
+          "item": "3 to 10 times",
+          "detail": "How many more tokens multi-agent setups used than a single agent on the same task in Anthropic's testing."
+        },
+        {
+          "item": "50 subagents",
+          "detail": "What Anthropic's early research agents spawned for simple queries, an example of over-delegation."
+        },
+        {
+          "item": "Session budget",
+          "detail": "A cap on total spend that backs up the coordinator's coverage test as a hard stop."
+        },
+        {
+          "item": "Managed Agents session threads",
+          "detail": "Each subagent works in its own persistent thread, so a follow-up to it keeps everything from its earlier turns."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Coordinator (hub)",
+          "def": "The central agent that decomposes the request, delegates subtasks, collects results and writes the final answer."
+        },
+        {
+          "term": "Subagent (spoke)",
+          "def": "An agent that handles one delegated subtask in its own isolated conversation and returns only its final message."
+        },
+        {
+          "term": "Orchestrator-workers",
+          "def": "A pattern in which the orchestrator works out subtasks from the specific input at runtime rather than using a hardcoded set."
+        },
+        {
+          "term": "Facet",
+          "def": "A distinct slice of a research question (subtopic, source set or source type) assigned to exactly one subagent."
+        },
+        {
+          "term": "Coverage failure",
+          "def": "Gaps in the final output caused by scope nobody was assigned, not by poor work on the assigned parts."
+        },
+        {
+          "term": "Iterative refinement loop",
+          "def": "The coordinator's cycle of finding gaps in a synthesis, re-delegating targeted queries and re-synthesising until coverage is sufficient."
+        },
+        {
+          "term": "Managed Agents",
+          "def": "The Claude Platform's multi-agent orchestration, where one agent coordinates others in a single session and each subagent has its own session thread."
+        }
+      ]
+    },
+    {
+      "code": "1.3",
+      "task": "Configure subagent invocation, context passing, and spawning",
+      "summary": "This lesson is about how a subagent is actually started and what it can see. A new subagent begins with an empty conversation, so anything it needs, including earlier findings and their sources, must go in the spawn prompt. It also covers defining subagent types, limiting their tools in the definition itself, and running several subagents in parallel from a single coordinator response.",
+      "key_concept": {
+        "term": "Subagent context isolation",
+        "definition": "When the coordinator spawns a subagent, the subagent starts with a blank conversation containing only its system prompt and the delegation prompt, not the coordinator's history, and the coordinator receives just its last message. Whatever the subagent needs has to be put in the spawn itself.",
+        "short": "A subagent starts with an empty history, so its prompt must contain everything it needs."
+      },
+      "notes": [
+        {
+          "topic": "Spawn is a tool call",
+          "note": "The coordinator spawns by calling the spawn tool with a subagent type and a per-run prompt; the subagent's final message returns as that call's tool result. Current SDKs emit it as `Agent`, older ones as `Task`, so stream checks should match both names.",
+          "short": "The coordinator starts a subagent with a tool call named `Agent` (or `Task` in older SDKs)."
+        },
+        {
+          "topic": "Enable the spawn tool",
+          "note": "Subagent types defined under `agents` are unreachable unless the spawn tool is in the coordinator's `allowedTools`; a built-in general-purpose subagent also exists and needs no definition.",
+          "short": "Subagents only work if the coordinator's `allowedTools` includes the tool that starts them."
+        },
+        {
+          "topic": "Choosing a type",
+          "note": "The coordinator picks among defined types by reading their descriptions; naming an agent in the prompt bypasses the matching, though Claude still decides whether to make the call.",
+          "short": "The coordinator picks a subagent type by reading descriptions; naming one in the prompt skips that."
+        },
+        {
+          "topic": "AgentDefinition fields",
+          "note": "`description` and `prompt` are required; `tools`, `disallowedTools`, `model` and `maxTurns` are optional and shape capability and runtime.",
+          "short": "`description` and `prompt` are required; `tools`, `disallowedTools`, `model` and `maxTurns` are optional."
+        },
+        {
+          "topic": "Two prompts, two jobs",
+          "note": "In the definition, `prompt` sets the standing system prompt, giving role and expertise to every run of that agent type, while the per-call prompt from the coordinator holds the task for that single run. The subagent's model receives both.",
+          "short": "The definition `prompt` sets the agent's role; the coordinator's call prompt gives this run's task."
+        },
+        {
+          "topic": "Where tool limits live",
+          "note": "Only the `tools` list in the subagent's own definition removes capability. A prompt line is an instruction the model may ignore, a 'read-only' description only affects selection, and narrowing the coordinator's `allowedTools` does not scope the subagent.",
+          "short": "Only the subagent's own `tools` list really limits it; prompt lines and descriptions don't."
+        },
+        {
+          "topic": "Unset tools is riskiest",
+          "note": "Leave out `tools` and the subagent gets all the tools that subagents can use, write and edit tools included.",
+          "short": "If you leave out `tools`, the subagent gets every tool, including write and edit."
+        },
+        {
+          "topic": "What a spawn sees",
+          "note": "A new subagent loads its own system prompt and project context such as CLAUDE.md, plus the spawn prompt; whatever the coordinator read, decided or heard from other subagents reaches it only through that prompt.",
+          "short": "A new subagent sees only its setup and task prompt, not what the coordinator learned."
+        },
+        {
+          "topic": "No memory between spawns",
+          "note": "A second spawn of the same type is a brand-new conversation; an earlier run's transcript is reachable only by deliberately resuming that agent by ID within the same session.",
+          "short": "Each new run starts a fresh chat; to reach an old run, resume it by ID."
+        },
+        {
+          "topic": "Isolation is a feature",
+          "note": "Each subagent keeps its intermediate tool calls to itself, so only the final summaries are added to the coordinator's context; the price is that every hand-off has to be spelled out.",
+          "short": "Subagents keep their tool work private, so the coordinator gets only short summaries."
+        },
+        {
+          "topic": "Pass complete findings",
+          "note": "Feed one subagent's full output to the next, not a pointer or a paraphrase; every hop compresses, so whatever the coordinator drops is lost to all later agents. Very large outputs can be stored externally and passed by lightweight reference.",
+          "short": "Pass the next subagent the full output, not a summary; lost details are gone for good."
+        },
+        {
+          "topic": "Keep attribution",
+          "note": "Hand findings over as records with the claim in one field and source URL, document name and page or location in separate fields, so the synthesis can cite every claim; prose like 'studies show' loses the source first.",
+          "short": "Pass findings as records with claim and source in separate fields, so each claim can be cited."
+        },
+        {
+          "topic": "Parallel spawning",
+          "note": "Subagents run concurrently only when the coordinator puts one spawn call per subagent in the same response; one spawn per turn serialises them, so three ten-minute reviews take thirty minutes.",
+          "short": "To run subagents at the same time, start them all in one response."
+        },
+        {
+          "topic": "Goals with criteria; fork option",
+          "note": "Delegate with an objective, output format, tool and source guidance, and clear boundaries, leaving the route to the subagent. When every branch needs a long shared analysis, fork the session (running a subagent as a fork is also possible) instead of spawning from empty.",
+          "short": "Give subagents a goal, format and limits; fork the session when all need the same background."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "For a read-only subagent, you can safely leave `tools` unset provided its prompt tells it not to edit files.",
+          "why": "An unset `tools` field hands the subagent every available tool, edit and write tools among them, and a line in the prompt is merely an instruction the model can ignore.",
+          "fix": "Set `tools` to the read-only set (for example `[\"Read\", \"Grep\"]`) in the subagent's own `AgentDefinition`."
+        },
+        {
+          "trap": "Results that earlier subagents sent back to the coordinator are visible to any subagent spawned afterwards in the same session.",
+          "why": "Those results live in the coordinator's conversation; a new spawn starts fresh with only its system prompt, project context and the prompt it is given.",
+          "fix": "Copy everything the earlier subagent found, along with its source details, into the prompt of the new spawn."
+        },
+        {
+          "trap": "However the coordinator sends its `Task` calls, the subagents will execute in parallel.",
+          "why": "Concurrency comes from several spawn `tool_use` blocks in one response; issued one per turn, each waits for the previous result, so they run one after another.",
+          "fix": "Return all independent spawn calls in a single coordinator response."
+        },
+        {
+          "trap": "Because it is goal-based, a delegation prompt works fine as a brief, open-ended goal like 'research the semiconductor shortage'.",
+          "why": "Anthropic found that terse goals made subagents misread the task and duplicate each other's searches (one covered the 2021 crisis while two repeated 2025 supply-chain work).",
+          "fix": "Goal-based still means specific: give an objective, an output format, tool and source guidance, and clear task boundaries."
+        },
+        {
+          "trap": "You can keep a subagent from changing files by calling it read-only in its description or by taking Edit and Write out of the coordinator's `allowedTools`.",
+          "why": "`description` only influences which agent is chosen, and the coordinator's `allowedTools` does not scope the subagent; trimming it could even remove the spawn tool the coordinator needs.",
+          "fix": "Restrict capabilities through the subagent's own definition, using its `tools` field."
+        }
+      ],
+      "exam_tips": [
+        "Match every requirement to the field that owns it. Hard capability limits ('must never modify files') belong in `tools`; guidance on when to select the agent ('use for security reviews') belongs in `description`; lasting expertise ('knows rollback best practice') belongs in `prompt`; and anything specific to a single run belongs in the per-call spawn prompt."
+      ],
+      "facts": [
+        {
+          "item": "`Agent` / `Task`",
+          "detail": "The spawn tool: current SDKs emit it as `Agent`, older versions as `Task`."
+        },
+        {
+          "item": "`allowedTools` / `allowed_tools`",
+          "detail": "Coordinator option that must include the spawn tool or no subagent can be called."
+        },
+        {
+          "item": "`agents`",
+          "detail": "Option under which subagent types are defined, each as an `AgentDefinition`."
+        },
+        {
+          "item": "`subagent_type`",
+          "detail": "Field in the spawn `tool_use` input that names the chosen subagent."
+        },
+        {
+          "item": "`description` (required)",
+          "detail": "Tells the coordinator when to delegate to this agent."
+        },
+        {
+          "item": "`prompt` (required)",
+          "detail": "Becomes the subagent's system prompt: role, expertise and constraints."
+        },
+        {
+          "item": "`tools` (optional)",
+          "detail": "List of permitted tools; when it is left out, the subagent gets all tools that subagents can use."
+        },
+        {
+          "item": "`disallowedTools` (optional)",
+          "detail": "Tools taken away from the set the agent can use."
+        },
+        {
+          "item": "`model` (optional)",
+          "detail": "Overrides the model, for example with `'sonnet'`, `'haiku'` or `'inherit'`."
+        },
+        {
+          "item": "`maxTurns` (optional)",
+          "detail": "Maximum agentic turns before the subagent stops and returns partial output."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Spawn tool (`Task`/`Agent`)",
+          "def": "The tool a coordinator calls to start a subagent with a chosen type and a per-run prompt."
+        },
+        {
+          "term": "`AgentDefinition`",
+          "def": "The configuration of one subagent type: description, system prompt, tools, model and turn limit."
+        },
+        {
+          "term": "Context isolation",
+          "def": "The property that a subagent sees none of its parent's conversation and returns only its final message."
+        },
+        {
+          "term": "Delegation prompt",
+          "def": "The per-call prompt in the spawn call, the only channel for passing the coordinator's knowledge to the subagent."
+        },
+        {
+          "term": "Structured finding record",
+          "def": "A hand-off item that keeps the claim itself in one field and puts its source URL, document name and location in separate fields."
+        },
+        {
+          "term": "General-purpose subagent",
+          "def": "A subagent that ships built in, which Claude can invoke even though you never defined it."
+        },
+        {
+          "term": "Fork (vs spawn)",
+          "def": "Branching a session so the new work starts with the full prior conversation instead of an empty context."
+        }
+      ]
+    },
+    {
+      "code": "1.4",
+      "task": "Implement multi-step workflows with enforcement and handoff patterns",
+      "summary": "This lesson shows how to make a multi-step process follow its required order, such as verifying a customer before any refund. A prompt instruction can be ignored, so the real guarantee is a gate in code: one hook notes when the prerequisite step has passed, and another refuses the risky tool until then. It also covers investigating several issues in parallel and writing a structured handoff to a human.",
+      "key_concept": {
+        "term": "Programmatic prerequisite gate",
+        "definition": "A programmatic gate: your code notes the moment a prerequisite step truly succeeds and refuses any downstream tool call for which no such note exists yet. Planning the sequence is still the model's job, but skipping the step is impossible since the allow-or-deny call is made outside the model.",
+        "short": "Your code, not the model, blocks a tool call until the needed earlier step really succeeded."
+      },
+      "notes": [
+        {
+          "topic": "Why prompts fall short",
+          "note": "Each turn the model picks its own tool calls, so an instruction like 'always call `get_customer` first' merely nudges that pick; given a lengthy conversation, a convincing customer or an unclear request, `process_refund` may still come first.",
+          "short": "A prompt rule like 'call `get_customer` first' is only advice; the model can still skip it."
+        },
+        {
+          "topic": "Keep both layers",
+          "note": "Leave the ordering instruction in the prompt so the model plans correctly, and let the PreToolUse hook make the order compulsory; it is the same idea as programmatic gates between prompt-chain steps, applied at one tool call.",
+          "short": "Keep the order rule in the prompt, and enforce it with a PreToolUse hook."
+        },
+        {
+          "topic": "Record in PostToolUse",
+          "note": "Write the verification record from a PostToolUse hook on `get_customer`, which fires only after the call succeeded and can read what it returned.",
+          "short": "Record the check in a PostToolUse hook on `get_customer`, which runs only after success."
+        },
+        {
+          "topic": "Block in PreToolUse",
+          "note": "A PreToolUse hook on `process_refund` returns `permissionDecision` `\"deny\"` with a reason when no valid record exists, and an empty object to let the call proceed.",
+          "short": "A PreToolUse hook on `process_refund` returns `\"deny\"` when no valid record exists."
+        },
+        {
+          "topic": "Shared session state",
+          "note": "Because a hook is just a normal callback inside your application, the hook that records and the hook that blocks can share state, reading and writing something like a per-session dictionary.",
+          "short": "Hooks are normal code in your app, so both hooks can share the same session data."
+        },
+        {
+          "topic": "Fail closed",
+          "note": "A hook matched to `get_customer` cannot make the model call it; if the call is skipped there is no record, so a missing or unreadable record must mean deny.",
+          "short": "If the record is missing or can't be read, always deny the call."
+        },
+        {
+          "topic": "No ordering between hooks",
+          "note": "When several hooks match one event they execute in parallel with no ordering guarantee, so every gate has to fetch its own state rather than count on a different hook to set it up.",
+          "short": "Hooks on one event run in no set order, so each gate reads its own state."
+        },
+        {
+          "topic": "Gate on evidence, not a flag",
+          "note": "Store the customer ID that `get_customer` actually returned and compare it with the ID in `process_refund`'s `tool_input`; a separate boolean such as `is_verified` can be flipped by a bug and let a bad refund through.",
+          "short": "Check the actual customer ID from `get_customer`, not a simple flag like `is_verified`."
+        },
+        {
+          "topic": "Post-hoc checks are too late",
+          "note": "A PostToolUse hook on `process_refund` runs after the refund executed, so the money has already moved and it cannot act as the gate.",
+          "short": "A PostToolUse hook on `process_refund` runs too late; the money has already moved."
+        },
+        {
+          "topic": "How matchers are read",
+          "note": "If a matcher contains nothing but letters, digits, `_`, `-`, spaces, commas and `|`, it is treated as one exact tool name or a list of them; include any other character and it becomes an unanchored JavaScript regex matching anywhere within the name. Matching is case-sensitive.",
+          "short": "Plain matchers mean exact tool names; any special character turns them into a loose regex."
+        },
+        {
+          "topic": "Avoid over-matching",
+          "note": "`.*refund` also matches `issue_refund_note`; use the exact name `process_refund` or the anchored `^process_refund$`. For MCP tools (`mcp__server__action`), list the money-moving tools' full names with `|` rather than a server-wide pattern that catches read-only lookups.",
+          "short": "`.*refund` matches too much; use the exact name `process_refund` or `^process_refund$`."
+        },
+        {
+          "topic": "Parallel investigations",
+          "note": "Split a multi-problem message into separate concerns and spawn one subagent per concern; give every prompt the same case facts (verified customer ID, order numbers, the customer's words) because subagents do not see the coordinator's turns.",
+          "short": "Split a multi-issue message into one subagent per issue, each with the same case facts."
+        },
+        {
+          "topic": "Investigate in parallel, act in sequence",
+          "note": "Read-only lookups can run concurrently; refunds and address changes keep their ordering and still pass the gate. Wait for all findings (a `SubagentStop` hook fires as each finishes), then write one resolution so conflicts like a double charge and a missing discount being the same transaction are caught.",
+          "short": "Look things up in parallel, but do refunds and changes in order, then write one answer."
+        },
+        {
+          "topic": "Structured human handoff",
+          "note": "Hooks can require human approval for sensitive actions; the handoff must give the verified customer ID, the root cause found (not the symptom), the amounts involved, and the recommended action with why it needs a human. A vague note or a raw transcript both fail.",
+          "short": "A handoff to a human must list customer ID, root cause, amounts and suggested action."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Since a PreToolUse hook on `get_customer` runs ahead of any possible `process_refund` call, it is an acceptable place to set the 'verified' marker.",
+          "why": "PreToolUse fires before `get_customer` executes, so the marker is set even if the lookup fails or finds no customer; and if the model never calls `get_customer`, the hook never runs at all.",
+          "fix": "Write the record in PostToolUse on `get_customer`, from the verified customer ID it actually returned."
+        },
+        {
+          "trap": "You can rely on a PostToolUse hook attached to `process_refund` as a safety net that checks verification again and rolls back a bad refund.",
+          "why": "PostToolUse runs after the tool has executed, so the refund has already gone out; it cannot prevent the call.",
+          "fix": "Block in a PreToolUse hook on `process_refund` that fails closed."
+        },
+        {
+          "trap": "The execution order of registered hooks is predictable, which lets one hook depend on another one having finished first.",
+          "why": "When multiple hooks match one event they execute in parallel without any ordering guarantee, so any design that requires one to complete before another is flawed from the outset.",
+          "fix": "Have every gate load its own required state independently."
+        },
+        {
+          "trap": "The only tool a regex matcher like `.*refund` will fire on is the one named `process_refund`.",
+          "why": "Its dot and asterisk make it an unanchored JavaScript regex that matches the substring anywhere, so `issue_refund_note` gets gated too.",
+          "fix": "Use the exact name `process_refund` or anchor it as `^process_refund$`."
+        },
+        {
+          "trap": "Verification before refunds can be guaranteed by stronger wording in the prompt, few-shot demonstrations of the correct sequence, or a bigger model.",
+          "why": "All of these still leave the decision to the model, so the failure rate stays above zero, which is unacceptable when money or compliance is involved.",
+          "fix": "Take the ordering decision away from the model and enforce it with a PreToolUse gate, code that executes ahead of the tool."
+        }
+      ],
+      "exam_tips": [
+        "When identity, money or compliance is at stake, treat any option that just beefs up the prompt (stronger wording, few-shot demonstrations of the correct sequence, a bigger model) as a distractor. The right answer enforces the order with code that executes ahead of the tool."
+      ],
+      "facts": [
+        {
+          "item": "`PreToolUse`",
+          "detail": "Hook event that fires before a tool executes and can refuse the call."
+        },
+        {
+          "item": "`PostToolUse`",
+          "detail": "Hook event that fires after a successful call; the right place to record that a prerequisite succeeded."
+        },
+        {
+          "item": "`hookSpecificOutput.permissionDecision` = `\"deny\"`",
+          "detail": "Refuses the tool call; `permissionDecisionReason` explains why."
+        },
+        {
+          "item": "`{}` (empty return)",
+          "detail": "Returned from a PreToolUse callback to let the call through."
+        },
+        {
+          "item": "`tool_input`",
+          "detail": "The call's arguments, available to the PreToolUse hook for comparing the refund's customer ID with the stored one."
+        },
+        {
+          "item": "`^process_refund$`",
+          "detail": "Anchored regex matcher that matches exactly one tool name."
+        },
+        {
+          "item": "Exact-name matcher characters",
+          "detail": "Letters, digits, `_`, `-`, spaces, commas and `|`; anything else turns the matcher into an unanchored JavaScript regex."
+        },
+        {
+          "item": "`mcp__server__action`",
+          "detail": "Name format for MCP tools, in which the server segment matches that server's key in `mcpServers`."
+        },
+        {
+          "item": "`SubagentStop`",
+          "detail": "Hook that fires as each subagent completes, letting the coordinator confirm all investigations finished."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Prerequisite gate",
+          "def": "Code that blocks a downstream tool until a record proves the prerequisite step succeeded."
+        },
+        {
+          "term": "Fail closed",
+          "def": "Treating a missing or unreadable record as a reason to deny rather than allow."
+        },
+        {
+          "term": "Matcher",
+          "def": "The pattern that decides which tool names a hook fires on."
+        },
+        {
+          "term": "Unanchored regex",
+          "def": "A pattern that matches if it appears anywhere in the tool name, not only as the whole name."
+        },
+        {
+          "term": "Multi-concern decomposition",
+          "def": "Splitting one customer message into separate problems that are each investigated on their own."
+        },
+        {
+          "term": "Structured handoff summary",
+          "def": "An escalation note with verified customer ID, root cause, amounts and a recommended action, usable without the transcript."
+        }
+      ]
+    },
+    {
+      "code": "1.5",
+      "task": "Apply Agent SDK hooks for tool call interception and data normalization",
+      "summary": "This lesson covers hooks in the Agent SDK: your code that runs at fixed points around a tool call and has the final say. PreToolUse can block, rewrite or approve a call before it runs, and PostToolUse can clean up results, such as turning timestamps into a readable format, before Claude sees them. It also explains when a hook beats a prompt and why matchers only see tool names.",
+      "key_concept": {
+        "term": "Deterministic enforcement through hooks",
+        "definition": "At a set point in the agent lifecycle, the SDK calls code you wrote and then enforces whatever decision that code returns; that code is a hook. A prompt instruction depends on the model agreeing to obey, and a hook does not.",
+        "short": "The SDK always enforces a hook's decision; a prompt only works if the model obeys."
+      },
+      "notes": [
+        {
+          "topic": "Decision rule",
+          "note": "Decide by the cost of one failure: put guidance the agent ought to follow most of the time in the prompt (phrasing, which tool to try first, summaries), and put rules that can never be broken in a hook (spending limits, protected files, data that must not leave). Use both together.",
+          "short": "Put soft guidance in the prompt and rules that must never break in a hook."
+        },
+        {
+          "topic": "PreToolUse timing",
+          "note": "Runs once Claude has emitted the `tool_use` block and ahead of the tool's execution, which leaves room to block the call or modify it.",
+          "short": "PreToolUse fires before a tool executes, letting you stop or edit the call."
+        },
+        {
+          "topic": "PostToolUse timing",
+          "note": "Runs when the tool has succeeded but its `tool_result` has not yet been returned to Claude, which means it can alter what Claude will see.",
+          "short": "PostToolUse runs after a tool succeeds and can change the result before Claude sees it."
+        },
+        {
+          "topic": "Failures go elsewhere",
+          "note": "Failed calls trigger `PostToolUseFailure`, not PostToolUse, so a normalizing PostToolUse hook never sees error shapes and error handling needs its own hook.",
+          "short": "Failed calls go to `PostToolUseFailure`, not PostToolUse, so errors need their own hook."
+        },
+        {
+          "topic": "PostToolBatch",
+          "note": "Fires a single time when every call in a parallel batch has resolved and the next model request has not yet gone out; only the TypeScript SDK offers it.",
+          "short": "`PostToolBatch` runs once after all parallel calls finish; only the TypeScript SDK has it."
+        },
+        {
+          "topic": "Linking pre and post",
+          "note": "Every callback receives the tool use ID, which is the same for a call's PreToolUse and PostToolUse events, so a hook can record arguments before execution and match them to the result afterwards.",
+          "short": "PreToolUse and PostToolUse get the same tool use ID, so you can match call and result."
+        },
+        {
+          "topic": "Registration shape",
+          "note": "Hooks are registered per event as a list of matchers, each with `matcher` (a pattern), `hooks` (the callbacks) and `timeout` (seconds).",
+          "short": "Each hook event takes a list of matchers with `matcher`, `hooks` and `timeout`."
+        },
+        {
+          "topic": "Matchers see only names",
+          "note": "No matcher option filters on arguments, and argument text inside a regex never matches because only the tool name is tested; read `input_data[\"tool_input\"]` fields in the callback instead.",
+          "short": "Matchers only check tool names; read arguments from `input_data[\"tool_input\"]` inside the hook."
+        },
+        {
+          "topic": "Matching one MCP server",
+          "note": "`mcp__billing__.*` covers every billing tool. `billing` or `mcp__billing` are exact names no tool has, `^mcp__` hits every MCP server, and `^mcp__billing__$` matches only the bare prefix string.",
+          "short": "The pattern `mcp__billing__.*` catches all tools from the billing MCP server."
+        },
+        {
+          "topic": "Decision values",
+          "note": "`\"deny\"` cancels the call and passes the reason to Claude; `\"ask\"` puts the permission prompt in front of the user; `\"allow\"` bypasses that prompt, although deny and ask rules are still enforced; `\"defer\"` stops the turn so it can be resumed later, with `stop_reason` `tool_deferred`; `{}` hands off to the normal permission flow.",
+          "short": "`\"deny\"` blocks, `\"ask\"` asks the user, `\"allow\"` skips the prompt, `\"defer\"` pauses, `{}` uses normal rules."
+        },
+        {
+          "topic": "systemMessage is for users",
+          "note": "The top-level `systemMessage` is shown to the user to explain the outcome; it never reaches Claude, so it has no power to redirect the agent.",
+          "short": "`systemMessage` is shown only to the user; Claude never sees it."
+        },
+        {
+          "topic": "Redirect through the reason",
+          "note": "Claude does read `permissionDecisionReason`. A bare 'Refund denied' encourages another attempt, whereas a reason that names the next step (pass the order ID and amount to `escalate_refund`) sends the agent there. Choose `\"ask\"` when a person can approve in real time; when prompts are not allowed, deny and give a precise reason.",
+          "short": "Claude reads `permissionDecisionReason`, so say what to do next, not just 'denied'."
+        },
+        {
+          "topic": "Rewrite instead of block",
+          "note": "Return `\"allow\"` with `updatedInput` to change a call's arguments, as in the SDK sandbox example that moves a Write's `file_path` under `/sandbox`.",
+          "short": "Return `\"allow\"` with `updatedInput` to fix a call's arguments instead of blocking it."
+        },
+        {
+          "topic": "Normalizing results",
+          "note": "A PostToolUse callback receives `tool_name`, `tool_input` and the raw `tool_response`; it can convert epoch timestamps to ISO 8601 UTC and numeric status codes to labels, branching on `tool_name`, then return the payload in `updatedToolOutput`.",
+          "short": "A PostToolUse hook can clean up raw output, like dates, and return it in `updatedToolOutput`."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "If the system prompt states the rule firmly and backs it with examples, the agent is guaranteed never to refund more than the limit.",
+          "why": "Any instruction the model reads can be misread, outweighed by a persuasive message or lost in a long context, so its failure rate is never zero; only code outside the model can guarantee the rule.",
+          "fix": "Attach a PreToolUse hook to the refund tool that inspects the amount and returns `\"deny\"` whenever it exceeds the limit."
+        },
+        {
+          "trap": "Tool calls can be filtered on their arguments by writing a matcher regex like `refund_customer.*category=restricted`.",
+          "why": "Matchers are compared with the tool name and nothing else; that name has no `category=restricted` in it, so the hook never fires and those refunds pass unchecked.",
+          "fix": "Match on `refund_customer` and check the amount and category from `tool_input` inside the callback."
+        },
+        {
+          "trap": "To catch all tools on the billing MCP server, a matcher of `^mcp__billing__$` or simply `billing` is enough.",
+          "why": "`billing` is interpreted as an exact tool name, and no tool is called that; `^mcp__billing__$` has anchors on both sides, so the only string it matches is the bare prefix, and no tool has that name.",
+          "fix": "Use `mcp__billing__.*`."
+        },
+        {
+          "trap": "A deny always steers the agent elsewhere, so a vague reason such as 'Refund denied' does the job.",
+          "why": "Blocking is deterministic, but redirection depends on Claude reading the reason; a reason with no alternative gives it nothing to act on, and it tends to retry the same call.",
+          "fix": "Keep `\"deny\"` and make `permissionDecisionReason` name the exact tool or workflow to use next."
+        },
+        {
+          "trap": "To replace the output of every kind of tool, you use the `updatedMCPToolOutput` field.",
+          "why": "It is the older field and only replaces output from MCP tools; built-in tools are left unchanged.",
+          "fix": "Switch to `updatedToolOutput`; it works in both SDKs and replaces output from built-in and MCP tools alike."
+        }
+      ],
+      "exam_tips": [
+        "A hook's block always holds, but where the agent goes next depends on Claude acting on the reason you return. Pick the answer that leaves the hook in place as the gate and gives a reason that names the specific tool or workflow for the agent to turn to next."
+      ],
+      "facts": [
+        {
+          "item": "`HookMatcher(matcher=..., hooks=[...])`",
+          "detail": "Python registration of callbacks under an event such as `\"PreToolUse\"`; a `timeout` in seconds is also available."
+        },
+        {
+          "item": "`hookSpecificOutput.permissionDecision`",
+          "detail": "Where a PreToolUse callback returns `\"allow\"`, `\"deny\"`, `\"ask\"` or `\"defer\"`."
+        },
+        {
+          "item": "`tool_deferred`",
+          "detail": "The `stop_reason` that ends the turn when a hook returns `\"defer\"`, so the call can be resumed later."
+        },
+        {
+          "item": "`updatedInput`",
+          "detail": "Returned with `\"allow\"` to rewrite the call's arguments before it runs."
+        },
+        {
+          "item": "`updatedToolOutput`",
+          "detail": "Swaps in new tool output before it reaches Claude; supported for every tool type in both SDKs."
+        },
+        {
+          "item": "`updatedMCPToolOutput`",
+          "detail": "Older field that replaces MCP tool output only."
+        },
+        {
+          "item": "`additionalContext`",
+          "detail": "Appends information to the tool result while the original output stays visible to Claude."
+        },
+        {
+          "item": "`systemMessage`",
+          "detail": "Top-level field that shows a message to the user; it does not change what Claude reads."
+        },
+        {
+          "item": "`PostToolUseFailure`",
+          "detail": "Hook event that fires after a tool call fails, for handling or logging errors."
+        },
+        {
+          "item": "`PostToolBatch`",
+          "detail": "Triggers one time once all parallel tool calls in a batch are resolved, ahead of the following model call; TypeScript SDK only."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Hook",
+          "def": "Application code the SDK runs at a fixed lifecycle point and whose returned decision it enforces."
+        },
+        {
+          "term": "PreToolUse",
+          "def": "The hook event between Claude's `tool_use` request and the tool's execution."
+        },
+        {
+          "term": "PostToolUse",
+          "def": "The hook event between a successful tool execution and Claude reading its result."
+        },
+        {
+          "term": "`permissionDecisionReason`",
+          "def": "Text sent to Claude with a deny, explaining why and ideally naming the alternative workflow."
+        },
+        {
+          "term": "Output normalization",
+          "def": "Rewriting heterogeneous tool results into one consistent format before the model reads them."
+        },
+        {
+          "term": "`tool_input`",
+          "def": "The arguments Claude passed to a tool, available to hook callbacks for argument-level checks."
+        }
+      ]
+    },
+    {
+      "code": "1.6",
+      "task": "Design task decomposition strategies for complex workflows",
+      "summary": "This lesson is about breaking a complex job into smaller steps and picking the right structure for them. The central question is whether the subtasks are known before the run starts: if so, chain them or run them in parallel from code; if not, let an orchestrator discover them as results arrive. It also explains why one giant review pass misses issues and why per-file passes work better.",
+      "key_concept": {
+        "term": "Predictable vs discovered subtasks",
+        "definition": "Decomposition comes down to one question: is the list of subtasks knowable before the run begins? When it is, code chains the steps or fans them out; when subtasks emerge only as the work unfolds, an orchestrator has to derive them from each step's findings.",
+        "short": "If you know the subtasks before starting, code them; if not, let an orchestrator find them."
+      },
+      "notes": [
+        {
+          "topic": "Two ways to get it wrong",
+          "note": "A fixed pipeline cannot follow a lead nobody planned for, while a dynamic planner spends tokens and adds run-to-run variation on work that never changes.",
+          "short": "Fixed pipelines can't follow surprises, and dynamic planners waste tokens on work that never changes."
+        },
+        {
+          "topic": "Prompt chaining",
+          "note": "Each LLM call processes the previous call's output, with programmatic gates between steps; it accepts extra latency for accuracy because each call has an easier job, as in writing copy and then translating it.",
+          "short": "Prompt chaining feeds each call's output into the next, trading speed for accuracy."
+        },
+        {
+          "topic": "Why a chain beats a planner here",
+          "note": "For fixed steps, an orchestrator or adaptive agent works out the same plan every run and pays for it each time; folding steps into one call removes the intermediate output a gate could check.",
+          "short": "For fixed steps, a planner repeats the same plan every run and wastes money."
+        },
+        {
+          "topic": "Structure, not instructions",
+          "note": "Separate API calls sequenced by orchestration code are a real pipeline; listing steps in a system prompt is a request the model can merge or skip. Explicit chaining lets you log, evaluate or branch between steps.",
+          "short": "Separate API calls in code form a real pipeline; steps listed in a prompt can be skipped."
+        },
+        {
+          "topic": "Attention dilution",
+          "note": "Recall from context declines gradually as token count grows on every model, so with 40 files in one pass each gets thin attention, comments turn generic and subtle cross-file interactions are missed.",
+          "short": "With many files in one pass, each gets less attention and subtle issues are missed."
+        },
+        {
+          "topic": "Two-stage review",
+          "note": "Check every file separately for local issues; after that, an integration pass over those findings looks at how the files interact. Because the file list and the stages are known in advance, a fixed chain fits.",
+          "short": "Review each file alone first, then do one pass on how files work together."
+        },
+        {
+          "topic": "Non-fixes for big reviews",
+          "note": "Ranking files by risk inside one pass keeps the dilution and starves low-ranked files; shuffled reruns with voting raise confidence but cannot surface an issue that every diluted pass misses.",
+          "short": "Ranking files or rerunning with votes doesn't fix the attention problem of one big pass."
+        },
+        {
+          "topic": "Code guarantees coverage",
+          "note": "In a Claude Code workflow script, each file is audited separately because the code invokes `agent()` once per file; a prompt requesting thoroughness has nothing to do with it.",
+          "short": "Coverage comes from code calling `agent()` once per file, not from a prompt asking for care."
+        },
+        {
+          "topic": "Orchestrator-workers",
+          "note": "A central LLM decides subtasks at runtime, delegates them and synthesises results; it can look like a fixed parallel workflow on a diagram, but differs in who chooses the subtasks. Fits code changes across an unknown number of files and multi-source research.",
+          "short": "In orchestrator-workers, a central model picks subtasks at run time, hands them out, and merges results."
+        },
+        {
+          "topic": "Adaptive investigation",
+          "note": "Start from what the alert points to and let each result pick the next subtask (inspect a recent deploy, or follow a downstream timeout); fixed parallel subagents, predefined stage chains and one big prompt all commit before evidence arrives.",
+          "short": "When digging into a problem, let each result pick the next step, not a fixed plan."
+        },
+        {
+          "topic": "Stop rule and cost",
+          "note": "An adaptive loop must have an explicit stopping condition, for example an iteration cap or a progress rule such as halting once two consecutive rounds turn up nothing new; the approach is worth it only when the task has enough value.",
+          "short": "Adaptive loops need a clear stop rule and only pay off on valuable tasks."
+        },
+        {
+          "topic": "Map, prioritise, adapt",
+          "note": "For 'add comprehensive tests to a legacy codebase': map architecture, data models and component interactions broad to narrow; rank areas by impact with one subtask per component; then revise the plan as dependencies appear, such as moving a database fixture earlier.",
+          "short": "For adding tests to old code, map it, rank areas by impact, and update the plan."
+        },
+        {
+          "topic": "Keep the plan outside context",
+          "note": "Store the evolving plan outside the model's context, as Anthropic's lead research agent saves its plan to memory, so truncation in a long run does not lose revisions.",
+          "short": "Save the changing plan outside the context so it survives a long run."
+        },
+        {
+          "topic": "Two-question rule",
+          "note": "If you can list the subtasks before the run, decompose in code: chain when a step needs another's output, section in parallel when none does. Only when you cannot does an orchestrator earn its planning call, and the simplest design is the recommended starting point.",
+          "short": "If you can list subtasks first, use code; otherwise use an orchestrator, and start simple."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Even if the steps are identical every time, having an orchestrator plan the subtasks per input is always the sturdier design.",
+          "why": "When the steps are fixed, the orchestrator produces the identical plan on each run, so the extra planning call, the added latency and the variation between runs buy nothing; the pattern's own guidance names subtasks that are predictable and can be defined up front as a sign to avoid it.",
+          "fix": "Use a fixed chain or fixed fan-out sequenced in code for predictable work."
+        },
+        {
+          "trap": "An agent turns into a fixed pipeline if its system prompt instructs it to carry out steps 1, 2 and 3 in sequence.",
+          "why": "The model is free to merge or skip steps that a prompt asks for, and one response gives you nowhere to inspect, log or gate the intermediate output.",
+          "fix": "Make each step its own API call sequenced by orchestration code, with checks between steps."
+        },
+        {
+          "trap": "Switching to a model with a bigger context window solves cross-file issues being missed in a large review, since the entire diff fits at once.",
+          "why": "The failure is attention dilution, not truncation: recall degrades as tokens grow on every model, so holding all files in one pass still spreads attention thin.",
+          "fix": "Run per-file local passes, then a cross-file integration pass over their findings."
+        },
+        {
+          "trap": "For an open-ended investigation, launching a predetermined set of parallel subagents, each assigned to a component under suspicion, qualifies as adaptive decomposition.",
+          "why": "The subtasks were chosen before any evidence arrived; parallelism does not make a plan adaptive, and a fault in a component nobody guessed goes unchecked.",
+          "fix": "Use an orchestrator that derives each next subtask from the latest findings, with an explicit stopping rule."
+        }
+      ],
+      "exam_tips": [],
+      "facts": [
+        {
+          "item": "`agent()`",
+          "detail": "Claude Code workflow script call; invoking it once per file is what guarantees each file its own focused pass."
+        },
+        {
+          "item": "`pipeline(found.files, file => agent(...))`",
+          "detail": "Workflow script construct in the example that runs one audit call per listed file."
+        },
+        {
+          "item": "Two rounds with nothing new",
+          "detail": "Progress-based stopping rule used in Claude Code's workflow examples for adaptive loops."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Prompt chaining",
+          "def": "A fixed sequence of LLM calls in code, each consuming the previous call's output."
+        },
+        {
+          "term": "Gate (in a chain)",
+          "def": "A programmatic check between steps that stops the chain if a step went wrong."
+        },
+        {
+          "term": "Parallelization (sectioning)",
+          "def": "Independent subtasks fixed in code before the run and executed side by side."
+        },
+        {
+          "term": "Orchestrator-workers",
+          "def": "Adaptive pattern where an LLM decides subtasks at runtime from the input and earlier findings, delegates them and synthesises results."
+        },
+        {
+          "term": "Attention dilution",
+          "def": "Loss of retrieval precision and long-range reasoning as more content shares one context."
+        },
+        {
+          "term": "Integration pass",
+          "def": "A second-stage pass over per-file findings that checks how files interact."
+        },
+        {
+          "term": "Path dependency",
+          "def": "The property that what to do next depends on what earlier steps found, so the route cannot be scripted in advance."
+        }
+      ]
+    },
+    {
+      "code": "1.7",
+      "task": "Manage session state, resumption, and forking",
+      "summary": "This lesson covers how conversations in Claude Code and the Agent SDK are stored as sessions and brought back. You learn the difference between continuing the latest session, resuming a specific one by ID or name, and forking a copy to try another path. It also warns that a resumed session replays old tool results, so changed files can mislead the agent, and that a fork leaves permission grants behind.",
+      "key_concept": {
+        "term": "Session as a replayable transcript",
+        "definition": "What a session stores is the conversation itself, every tool call and result included, so on resume the agent is shown the very same material it had before. This helps while those results remain accurate and misleads as soon as the files behind them change.",
+        "short": "Resume replays the saved chat and tool results, which can be wrong once files change."
+      },
+      "notes": [
+        {
+          "topic": "Continue",
+          "note": "Picks up the latest session in the current directory without needing any ID; the right choice only when the session you want is certain to be the newest one.",
+          "short": "Continue opens the newest session in this folder, so make sure it's the right one."
+        },
+        {
+          "topic": "Resume",
+          "note": "Opens a particular session by its ID (or, in the CLI, by its name), whether or not it is the newest one.",
+          "short": "Resume opens a specific session by its ID or name, even if it isn't the newest."
+        },
+        {
+          "topic": "Fork",
+          "note": "Takes the history of an existing session as its starting point, yet records into a new session that has a separate ID, so the original stays untouched.",
+          "short": "Fork copies a session's history into a new session, leaving the original untouched."
+        },
+        {
+          "topic": "Often no session needed",
+          "note": "A self-contained one-shot task needs only a single `query()` call; adding resume logic would create state nothing reads. Bring in session handling only if a later turn depends on something an earlier turn discovered.",
+          "short": "A one-shot task needs just one `query()` call; add sessions only when later turns need earlier ones."
+        },
+        {
+          "topic": "What resume preserves",
+          "note": "A resumed Claude Code session keeps its model and, if started with `--agent`, the same agent and tool restrictions; any tool that was still running when the process died is not executed again, and Claude is instead instructed to verify whether its effect went through.",
+          "short": "A resumed session keeps its model and tool limits, and won't rerun an interrupted tool."
+        },
+        {
+          "topic": "Naming and resolution",
+          "note": "Name with `claude -n <name>`, `/rename <name>` or Ctrl+R in the picker; `claude --resume <name>` resumes directly on an exact match and opens a pre-filled picker if ambiguous, while `/resume <name>` reports an error when ambiguous.",
+          "short": "Name sessions with `claude -n <name>` and reopen them with `claude --resume <name>`."
+        },
+        {
+          "topic": "Valid handles, local files",
+          "note": "Names you set and generated titles work as resume handles, but default display names like `my-app-3f` do not; session files are on local disk, so a fresh CI host cannot resume a laptop session unless the transcript is copied over.",
+          "short": "Resume using names you set, not default ones; files stay on the local machine."
+        },
+        {
+          "topic": "Resume by ID in the SDK",
+          "note": "Every result message carries `session_id`; store it and pass it as `resume`. Headless CLI does the same with `--output-format json`, extracting `session_id` and passing it to `--resume`.",
+          "short": "Save the `session_id` from each result and pass it as `resume` to continue later."
+        },
+        {
+          "topic": "Multi-user services",
+          "note": "With many users' sessions in one directory, store each user's ID and resume by it; `continue_conversation=True` would attach to whichever session was touched last, and forking every turn abandons the user's real thread.",
+          "short": "For many users, keep each user's session ID and resume with that, never the newest session."
+        },
+        {
+          "topic": "Recovering from limits",
+          "note": "If a run ended with `error_max_turns` or `error_max_budget_usd`, you can raise the limit and resume it in that same session; with a single-shot `query()` the SDK throws after yielding that result, so catch the exception and hold on to the ID.",
+          "short": "If a run hit a turn or budget limit, raise it and resume the same session."
+        },
+        {
+          "topic": "Fork mechanics",
+          "note": "Pass `resume` plus `fork_session=True` (TypeScript `forkSession: true`, CLI `--fork-session`) and capture the new ID; store both IDs. Standalone Python `fork_session()` only writes the transcript (optionally up to `up_to_message_id`) and returns an ID, so nothing runs until you resume it.",
+          "short": "To fork, pass `resume` with `fork_session=True`, then save both the old and new IDs."
+        },
+        {
+          "topic": "What a fork drops",
+          "note": "Forking duplicates the conversation but not the permission state. Grants of 'allow for this session' remain with the original session (an in-process `/branch` does inherit them), and when you `--fork-session` a session that finished in plan mode, the fork opens in whatever permission mode a fresh session would get.",
+          "short": "A fork copies the chat but not permissions you granted for the old session."
+        },
+        {
+          "topic": "Stale tool results",
+          "note": "Resume replays recorded tool results, so edited files are seen in their old form; if a few known files changed, resume and name them for re-reading, and if most results are stale, start a new session seeded with saved conclusions, decisions and diffs.",
+          "short": "Resume shows old tool results, so ask Claude to read changed files again, or start fresh."
+        },
+        {
+          "topic": "Resume from summary",
+          "note": "Claude Code offers two options: Resume from summary runs `/compact` right away so later requests carry a generated summary, and Resume full session as-is brings back the history unchanged; the generated summary can lose facts that matter to you.",
+          "short": "Resume from summary shrinks the history and may lose facts; full resume keeps it all."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "To get back to yesterday's named session, run `claude --continue`.",
+          "why": "`--continue` follows recency, not identity, so any later session in the same directory, such as a quick unrelated one this morning, becomes the target.",
+          "fix": "Run `claude --resume <name>`."
+        },
+        {
+          "trap": "Setting `continue_conversation=True` in a service with many users connects every user back to the session that belongs to them.",
+          "why": "It attaches to the most recently touched session in the directory, which is usually another user's.",
+          "fix": "Save a `session_id` per user and supply it as `resume` once that user comes back."
+        },
+        {
+          "trap": "Along with the history, a `--fork-session` fork carries over the 'allow for this session' grants from the original session.",
+          "why": "Forking duplicates the conversation but leaves permission state behind; the fork runs as a fresh process, so grants made at session level remain attached to the session where they were given.",
+          "fix": "Expect to approve commands again in the fork; plan mode also resets."
+        },
+        {
+          "trap": "Once you call `fork_session()`, the agent begins running on the new branch.",
+          "why": "That standalone function just creates the forked transcript and hands back its ID; it does not run any agent.",
+          "fix": "Pass the returned `session_id` to `ClaudeAgentOptions(resume=...)` to work on the branch."
+        },
+        {
+          "trap": "You can always resume safely after the code has changed, since the agent will spot that the files differ.",
+          "why": "A resumed session replays the recorded tool results, so the agent reasons from old file contents unless told otherwise.",
+          "fix": "Resume with a note naming the changed files, or start a fresh session with a structured summary when most results are stale."
+        },
+        {
+          "trap": "Starting a new session seeded with a pasted summary of yesterday's findings works just as well as resuming the named session.",
+          "why": "A summary throws away the complete record of everything the agent read and every conclusion it reached, and that record is precisely why resuming pays off while it remains accurate.",
+          "fix": "Resume by name; reserve summary-seeded fresh sessions for stale context or moving to another host."
+        },
+        {
+          "trap": "The quickest route back is to run `claude --resume` with no argument and choose from the list.",
+          "why": "It works but adds a manual search step, whereas an exact name match resumes directly.",
+          "fix": "Use `claude --resume <name>`."
+        }
+      ],
+      "exam_tips": [
+        "If the question states that the session has a name and wants the most direct return with all context intact, choose `--resume <that-name>`. Reject `--continue` because it targets whichever session is newest, the bare picker because it needs an extra manual step, and a pasted summary because it loses the history."
+      ],
+      "facts": [
+        {
+          "item": "`claude -n <name>` / `/rename <name>`",
+          "detail": "Set a session name at startup or during the session (Ctrl+R in the picker also renames)."
+        },
+        {
+          "item": "`claude -r \"<name>\" \"<prompt>\"`",
+          "detail": "Go straight back into a named session, giving the next turn as part of that same command."
+        },
+        {
+          "item": "`claude --continue` / `continue_conversation=True` / `continue: true`",
+          "detail": "Reopen whichever session in the current directory is newest."
+        },
+        {
+          "item": "`resume=session_id`",
+          "detail": "SDK option that reloads one specific session by the ID captured from a result message."
+        },
+        {
+          "item": "`--output-format json`",
+          "detail": "Headless output from which `session_id` can be extracted (for example with `jq`) and passed to `--resume`."
+        },
+        {
+          "item": "`fork_session=True` / `forkSession: true` / `--fork-session`",
+          "detail": "Python, TypeScript and CLI ways to branch a resumed session into a new session ID."
+        },
+        {
+          "item": "`fork_session()` with `up_to_message_id`",
+          "detail": "Standalone Python function that writes a fork of the transcript, optionally only up to a chosen message, and returns its ID without running the agent."
+        },
+        {
+          "item": "`persistSession: false`",
+          "detail": "TypeScript-only option for stateless tasks that writes nothing to disk."
+        },
+        {
+          "item": "`ClaudeSDKClient`",
+          "detail": "Python option for a multi-turn chat within one process."
+        },
+        {
+          "item": "`error_max_turns` / `error_max_budget_usd`",
+          "detail": "Limit results after which the same session can be resumed with a higher limit."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Session",
+          "def": "A saved conversation, including every tool call and result, that can be continued, resumed or forked."
+        },
+        {
+          "term": "Continue",
+          "def": "Returning to whichever session in the current directory is latest, without keeping track of any ID."
+        },
+        {
+          "term": "Resume",
+          "def": "Re-entering one specific session identified by ID or, in the CLI, by name."
+        },
+        {
+          "term": "Fork",
+          "def": "Copying a session's history into a new session ID so the original stays unchanged."
+        },
+        {
+          "term": "Resume handle",
+          "def": "A value `--resume` accepts: a session ID, a name you set or a generated title, but not a default display name."
+        },
+        {
+          "term": "Change note",
+          "def": "A first prompt on resume that names exactly which files changed so only those are re-read."
+        },
+        {
+          "term": "Structured summary seed",
+          "def": "Saved conclusions, decisions and diffs written into a fresh session's first prompt in place of stale history."
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "title": "stop_reason values in a client-side agentic loop",
+      "columns": [
+        "stop_reason",
+        "What it means",
+        "What the loop does"
+      ],
+      "rows": [
+        [
+          "`\"tool_use\"`",
+          "Claude is requesting one or more tools",
+          "Run them, append `tool_result` blocks and send another request"
+        ],
+        [
+          "`\"end_turn\"`",
+          "Claude finished naturally, possibly on the first request",
+          "Use the response; the loop is done"
+        ],
+        [
+          "`\"max_tokens\"`",
+          "The response hit your `max_tokens` limit",
+          "Exit the loop; raise the limit or continue the response"
+        ],
+        [
+          "`\"pause_turn\"`",
+          "The server-tool loop hit its iteration cap",
+          "Send the assistant content back so it can continue"
+        ],
+        [
+          "`\"refusal\"`",
+          "Claude declined to respond",
+          "Check `stop_details`, then retry using a fallback model"
+        ]
+      ]
+    },
+    {
+      "title": "Hook events around tool calls and subagents",
+      "columns": [
+        "Event",
+        "When it fires",
+        "Typical use"
+      ],
+      "rows": [
+        [
+          "`PreToolUse`",
+          "After Claude emits `tool_use`, before the tool runs",
+          "Allow, deny, ask or defer; rewrite arguments with `updatedInput`; prerequisite gates and spending limits"
+        ],
+        [
+          "`PostToolUse`",
+          "After a successful call, before Claude reads the result",
+          "Replace output with `updatedToolOutput` or append with `additionalContext`; record that a prerequisite succeeded"
+        ],
+        [
+          "`PostToolUseFailure`",
+          "After a tool call fails",
+          "Handle or log errors, which PostToolUse never sees"
+        ],
+        [
+          "`PostToolBatch`",
+          "After a full batch of parallel calls resolves, before the next model call",
+          "Act once per batch (TypeScript SDK only)"
+        ],
+        [
+          "`SubagentStop`",
+          "As each subagent completes",
+          "Confirm all investigations finished and collect results before synthesis"
+        ]
+      ]
+    },
+    {
+      "title": "Choosing a decomposition pattern",
+      "columns": [
+        "Pattern",
+        "Who decides the subtasks",
+        "Use when",
+        "Example"
+      ],
+      "rows": [
+        [
+          "Prompt chaining (fixed sequence)",
+          "Your code, before the run",
+          "Each step needs the previous output and the order never changes",
+          "Write copy then translate; per-file review then cross-file pass"
+        ],
+        [
+          "Parallelization: sectioning (fixed fan-out)",
+          "Your code, before the run",
+          "Subtasks are independent and none needs another's result",
+          "One call screens content while another answers the query"
+        ],
+        [
+          "Orchestrator-workers (adaptive)",
+          "An orchestrator LLM, at runtime",
+          "Which subtasks are needed varies with the input or with earlier findings",
+          "Changes touching an unknown number of files; research across multiple sources; vague incident alert"
+        ],
+        [
+          "Little or no delegation",
+          "Nobody; a single call suffices",
+          "Simple, single-output request",
+          "Extra agents would add complexity and latency without value"
+        ]
+      ]
+    },
+    {
+      "title": "Continue vs resume vs fork vs fresh start",
+      "columns": [
+        "Option",
+        "Use when",
+        "Watch out"
+      ],
+      "rows": [
+        [
+          "Continue (`--continue`, `continue_conversation=True`)",
+          "Only one conversation at a time and you want the latest session in this directory",
+          "Follows recency, not identity; wrong for named sessions from earlier or multi-user services"
+        ],
+        [
+          "Resume (`--resume <name>`, `resume=session_id`)",
+          "Return to a specific session, act on finished analysis, or recover from turn or budget limits",
+          "Session file must exist on this machine; recorded tool results may be stale"
+        ],
+        [
+          "Resume with a change note",
+          "A few known files changed since the session read them",
+          "Name the exact files, or the agent trusts old reads or re-explores everything"
+        ],
+        [
+          "Fork (`fork_session=True`, `--fork-session`)",
+          "Try an alternative from a shared baseline without altering the original",
+          "New ID to store; no 'allow for this session' grants, plan mode resets; standalone `fork_session()` runs nothing"
+        ],
+        [
+          "Fresh session seeded with a structured summary",
+          "Broad changes made most results stale, or work must move to another host",
+          "Save conclusions, decisions and diffs before ending; the detailed history is not carried over"
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1074 @@
+{
+  "domain": 2,
+  "title": "Tool Design & MCP Integration",
+  "weight": 18,
+  "intro": "This domain is about giving Claude tools it can use well: writing clear tool descriptions, returning useful errors, deciding which agent gets which tools, connecting MCP servers, and picking the right built-in tool for each job.",
+  "lessons": [
+    {
+      "code": "2.1",
+      "task": "Design effective tool interfaces with clear descriptions and boundaries",
+      "summary": "This lesson is about how Claude chooses between tools. It sees only each tool's `name` and `description`, so vague or overlapping descriptions send calls to the wrong tool. It covers writing detailed descriptions that say when to use a tool versus its neighbour, why array order or `input_examples` cannot rescue a weak description, and how a keyword rule in the system prompt can still cause misrouting.",
+      "key_concept": {
+        "term": "Description-driven tool selection",
+        "definition": "The only information the API exposes to the model about a tool is its name and description, so those two fields are what Claude weighs against the request when choosing a call. When two tools carry descriptions that say the same thing, nothing distinguishes them and calls end up at the wrong tool.",
+        "short": "Claude picks tools only by name and description; if two descriptions match, it picks wrong."
+      },
+      "notes": [
+        {
+          "topic": "Only selection signal",
+          "note": "Tool choice comes from comparing the request against every tool's `name` and `description`. The model never sees array order, backend routing weights, internal function names or IDs a user might type, so none of these can shift which tool it calls.",
+          "short": "Claude only sees each tool's name and description; order and internal IDs don't matter."
+        },
+        {
+          "topic": "Tool definition fields",
+          "note": "A user-defined tool has `name`, `description`, `input_schema` (a JSON Schema object) and optional `input_examples`; under the default `tool_choice` of `auto`, Claude calls a tool when the request maps to its described capability and the answer is not already in context.",
+          "short": "A tool needs a name, description and input schema; Claude uses it when the request fits."
+        },
+        {
+          "topic": "Short descriptions fail quietly",
+          "note": "A one-liner like 'Gets the stock price for a ticker.' leaves Claude guessing about exchanges, currency and scope; the damage appears once a second, similar tool exists, because that line is all Claude has to tell them apart.",
+          "short": "A one-line description leaves Claude guessing, and fails once a similar tool is added."
+        },
+        {
+          "topic": "Most important lever",
+          "note": "According to Anthropic, nothing affects tool performance more than a detailed description. Write at least 3-4 sentences: what the tool does, when it should and should not be used, the meaning of each parameter, and caveats such as what it does not return.",
+          "short": "Good descriptions matter most: 3-4 sentences on what it does, when to use it, and limits."
+        },
+        {
+          "topic": "Input format in parameters",
+          "note": "A `description` on each parameter tells Claude the expected format, for example a ticker described as 'e.g. AAPL for Apple Inc.' or a location given as city and state like 'San Francisco, CA'; a bare `{\"type\": \"string\"}` leaves Claude with no format guidance.",
+          "short": "Add a description to each parameter showing its format, like AAPL for a stock ticker."
+        },
+        {
+          "topic": "input_examples supplement",
+          "note": "`input_examples` are validated against the schema (an invalid one returns a 400 error) and help with nested or format-sensitive inputs and with telling similar tools apart, but they add to the description rather than replace it.",
+          "short": "`input_examples` help with tricky inputs and similar tools, but they add to descriptions, not replace them."
+        },
+        {
+          "topic": "Small wording, big effect",
+          "note": "Anthropic fixed Claude's habit of tacking the current year onto web search queries without reason, and did it only by rewriting the tool description.",
+          "short": "Anthropic stopped Claude adding the year to search queries just by rewriting the tool description."
+        },
+        {
+          "topic": "Differentiate by when",
+          "note": "To tell sibling tools apart, compare four things for each: what it is for, what it takes, what it returns, and when to choose it instead of its neighbour. That last point, which includes naming the case that goes to the other tool, decides the outcome.",
+          "short": "For similar tools, the key is saying when to pick each one over the other."
+        },
+        {
+          "topic": "Overlap from a successor",
+          "note": "When a newer tool takes over part of an old tool's job, edit the old tool twice: rename it to the scope it still has, and rewrite its description to exclude the case the new tool now owns.",
+          "short": "Rename the old tool and update its description to exclude what the new tool now does."
+        },
+        {
+          "topic": "Overlap from copied text",
+          "note": "If two tools share near-verbatim descriptions, give each a name and description stating a scope the other lacks (e.g. `extract_web_results` for web search results, `analyze_document` for uploads); deleting a tool or making users paste text removes capability without fixing the descriptions.",
+          "short": "If two tools have almost the same description, rewrite both so each covers a different job."
+        },
+        {
+          "topic": "Naming helps, not alone",
+          "note": "Specific names (`search_customer_orders` over `query_db_orders`) and service prefixes (`github_list_prs`, `slack_send_message`) keep selection clear as libraries grow, but they complement descriptions: clear names with identical descriptions still overlap.",
+          "short": "Clear names and service prefixes help, but tools with the same description still overlap."
+        },
+        {
+          "topic": "Split vs consolidate",
+          "note": "When one tool hides several purposes with different inputs and outputs (extract, summarize, verify a claim), break it into separate tools. When several actions act on the same resource with a shared contract (create, review, merge a PR), merge them into one tool that takes an `action` parameter.",
+          "short": "Split a tool that does unrelated jobs; merge related actions on the same thing into one tool."
+        },
+        {
+          "topic": "Document the output contract",
+          "note": "Spell out what comes back, as Anthropic's `get_orders` example does with `id`, `total` in USD, `status`, `items` and an ISO 8601 `created_at`, and shape parameter names and arguments so mistakes are harder to make.",
+          "short": "Describe each field the tool returns, and name inputs so mistakes are hard to make."
+        },
+        {
+          "topic": "System prompt shares the prompt",
+          "note": "Tool definitions, your system prompt and the tool configuration all end up in a single API-built prompt. That is why a keyword rule (e.g. 'analyze any document the user mentions'), an emphatic 'CRITICAL: You MUST' line or an 'If in doubt, use X' default can draw calls away from a tool that is well described.",
+          "short": "Strong system prompt rules can pull calls away from a well-described tool."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "When two tools have near-identical descriptions, changing their position in the tools array or giving one a backend routing priority will stop the misrouting.",
+          "why": "Array position and backend weights are not signals the model selects on; with matching descriptions Claude still has nothing that separates the two tools.",
+          "fix": "Change the names and descriptions so each states its own scope and when to use it instead of the other."
+        },
+        {
+          "trap": "Supplying `input_examples` lets you get away with a thinner description.",
+          "why": "An example demonstrates the shape of a valid call; it tells Claude nothing about the situations that call for the tool or the limits of what it covers.",
+          "fix": "Write the full description first; add schema-valid `input_examples` only as a supplement for complex or format-sensitive inputs."
+        },
+        {
+          "trap": "As long as each description explains the tool's function, similar tools will not be confused.",
+          "why": "Two detailed 'what it does' descriptions can both still claim the same request, as the stale `analyze_content` description did for web content; Anthropic's troubleshooting advice is to separate tools by when to use them.",
+          "fix": "Each description should say when to choose it over its sibling, what it will not do or return, and which case belongs to the other tool."
+        },
+        {
+          "trap": "Good tool descriptions make tool selection immune to anything written in the system prompt.",
+          "why": "The system prompt sits in the same constructed prompt as the tool definitions, so a keyword trigger, an emphatic MUST or a default-to-this-tool rule competes with, and can override, the descriptions.",
+          "fix": "If misroutes persist after fixing descriptions, audit the system prompt: remove or redirect keyword links and tone emphatic wording down to a plain 'Use this tool when...'."
+        },
+        {
+          "trap": "Overlap goes away if you remove the descriptions so the model goes by names alone, or if you require users to refer to the tool by its internal ID.",
+          "why": "Descriptions are the main selection signal; removing them leaves only near-synonymous names, and asking users to name tools shifts the burden without changing what the model sees.",
+          "fix": "Fix the tool definitions themselves by renaming and rescoping."
+        }
+      ],
+      "exam_tips": [
+        "For a question about calls going to the wrong one of two similar tools, the correct option edits the tool names or descriptions. Options that reorder the array, set backend priority, delete descriptions or have users name the tool are the wrong answers.",
+        "When the descriptions are clearly distinct and calls are still misrouted, the answer is checking the system prompt for an instruction tied to a keyword, because the model reads that prompt together with the tools."
+      ],
+      "facts": [
+        {
+          "item": "`^[a-zA-Z0-9_-]{1,128}$`",
+          "detail": "Pattern that a tool `name` must match."
+        },
+        {
+          "item": "`input_examples`",
+          "detail": "Optional example inputs, each validated against `input_schema`; an invalid example returns a 400 error."
+        },
+        {
+          "item": "3-4 sentences",
+          "detail": "Recommended minimum length for a tool description, with more for complex tools."
+        },
+        {
+          "item": "`tool_choice` default `auto`",
+          "detail": "If the request includes tools, Claude chooses each turn whether or not to call one."
+        },
+        {
+          "item": "`{{ TOOL DEFINITIONS IN JSON SCHEMA }}` then `{{ USER SYSTEM PROMPT }}` then `{{ TOOL CONFIGURATION }}`",
+          "detail": "Order inside the API-built prompt, showing the system prompt sits directly after the tool definitions."
+        },
+        {
+          "item": "`get_orders` output fields",
+          "detail": "Example documented output: `id`, `total` in USD, `status` of `pending`/`shipped`/`delivered`, `items`, and ISO 8601 `created_at`."
+        },
+        {
+          "item": "Tool search",
+          "detail": "Searches tool names and descriptions, which means two vaguely described tools are harder both to find and to pick between."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Description-driven tool selection",
+          "def": "Claude chooses a tool by matching the request against tool names and descriptions, the only tool information it sees."
+        },
+        {
+          "term": "Misrouting",
+          "def": "Claude calling tool A when tool B was intended, most often caused by overlapping names or descriptions."
+        },
+        {
+          "term": "Rename and rescope",
+          "def": "Fixing overlap by giving a tool a name that matches its remaining scope and a description that excludes a sibling's case."
+        },
+        {
+          "term": "Purpose-specific contract",
+          "def": "A single-job tool with defined inputs and outputs, typically produced by splitting a generic tool."
+        },
+        {
+          "term": "Consolidation",
+          "def": "Grouping several actions on one resource into one tool with an `action` parameter to reduce selection ambiguity."
+        },
+        {
+          "term": "Keyword-triggered instruction",
+          "def": "A system prompt rule tied to a word, such as 'document', that pulls calls toward a tool whose name contains it."
+        },
+        {
+          "term": "`input_examples`",
+          "def": "Optional schema-validated sample inputs that supplement, but never replace, a tool description."
+        }
+      ]
+    },
+    {
+      "code": "2.2",
+      "task": "Implement structured error responses for MCP tools",
+      "summary": "This lesson is about how MCP tools report failures. Requests that never reach a working tool get a protocol error, while a tool that runs and fails returns a normal result marked `isError: true` that the agent can read. It covers adding `errorCategory` and `isRetryable` so the agent knows whether to retry, fix its input, ask the user or stop, and why no matches is not an error.",
+      "key_concept": {
+        "term": "Tool execution error (`isError`)",
+        "definition": "A tool that executes but fails at its task reports the failure inside a normal tool result marked `isError: true`. From the error text and metadata in that result, the agent works out whether to retry, change its input, ask the user or stop.",
+        "short": "A tool that runs but fails returns `isError: true`, and the agent decides what to do."
+      },
+      "notes": [
+        {
+          "topic": "Two error channels",
+          "note": "Requests that never reach a working tool (unknown tool name, a request failing the `CallToolRequest` schema, server errors) get a JSON-RPC `error`; failures inside a tool that ran (upstream API down, a bad or missing argument, a business-rule refusal) return a normal `result` with `isError: true`.",
+          "short": "Requests that never reach a tool get a protocol `error`; failures inside a tool return `isError: true`."
+        },
+        {
+          "topic": "Why the channel matters",
+          "note": "A tool's own failure sent as a protocol error hides the failure from the model, so it cannot correct itself; an `isError` result reaches it as ordinary tool text it can act on.",
+          "short": "Protocol errors hide the failure from Claude; an `isError` result lets Claude see it and recover."
+        },
+        {
+          "topic": "Claude API spelling",
+          "note": "On the Claude API side, a client tool that fails sends back a `tool_result` block carrying `\"is_error\": true`, with its `content` holding the error text. The block is shaped exactly like a successful one except for the flag, and Claude responds based on the flag and the text.",
+          "short": "The Claude API marks a failed tool's `tool_result` with `\"is_error\": true`; the content explains why."
+        },
+        {
+          "topic": "Three recovery moves",
+          "note": "Faced with an error, the agent has three options: retry with corrected input, ask the user, or stop after explaining the limitation. Each one depends on different information, and a generic 'Operation failed' gives the agent none of it.",
+          "short": "The agent can retry, ask the user, or stop; a vague error doesn't show which."
+        },
+        {
+          "topic": "Cost of guessing",
+          "note": "Treating every failure as temporary loops on requests that can never succeed, treating every failure as final abandons timeouts that would clear, and blaming a 'system problem' misleads users when a policy blocked the request.",
+          "short": "If the agent guesses the error type, it may retry forever, quit too soon, or mislead users."
+        },
+        {
+          "topic": "Structured metadata",
+          "note": "`errorCategory` names the kind of failure; `isRetryable` tells the agent whether the same request, sent again unchanged, has any chance of working (false stops pointless retries); the description explains what to fix or what to tell the user.",
+          "short": "`errorCategory` says the error type, `isRetryable` says if retrying helps, and the description says what to fix."
+        },
+        {
+          "topic": "Catch errors in the handler",
+          "note": "In an Agent SDK tool handler, an uncaught exception becomes an error result containing only the raw exception message; catching it and returning `isError: true` yourself lets Claude see a message you wrote about what failed and what to try.",
+          "short": "Catch errors in your tool handler and return `isError: true` with a clear, helpful message."
+        },
+        {
+          "topic": "The retry test",
+          "note": "`isRetryable` answers one question: would the identical request succeed if sent again unchanged? Only transient errors (timeouts, rate limits, temporarily unavailable services) qualify.",
+          "short": "`isRetryable` is true only if the same request could work later, like after a timeout."
+        },
+        {
+          "topic": "Validation is not transient",
+          "note": "A transient error clears on its own, while a validation error (wrong type or format, out of range, missing required field) clears only after the input changes, so mark it `isRetryable: false` and name the bad field.",
+          "short": "Bad input won't fix itself, so mark it `isRetryable: false` and name the wrong field."
+        },
+        {
+          "topic": "Permission vs business",
+          "note": "Permission errors are about who is calling (a token lacking the required role) and need a broader credential or escalation; business errors are about what was asked (a 10-attendee limit, a legal hold) and need a customer-friendly explanation plus alternatives; both are non-retryable.",
+          "short": "Permission errors need more access; business-rule errors need a friendly explanation; neither should be retried."
+        },
+        {
+          "topic": "Where the fields live",
+          "note": "MCP itself defines only the `isError` flag; putting `errorCategory`, `isRetryable` and a description in the `content` text or the optional `structuredContent` is a legitimate content design, not a protocol violation.",
+          "short": "MCP only defines `isError`; putting extra error fields in the content is allowed."
+        },
+        {
+          "topic": "Subagent: retry or report",
+          "note": "A subagent absorbs transient errors by retrying with backoff and only escalates if retries run out; on a non-retryable error it stops and reports, with the category telling the coordinator what help is needed.",
+          "short": "A subagent retries temporary errors itself and reports other errors to the coordinator."
+        },
+        {
+          "topic": "Partial-failure report",
+          "note": "Report the whole batch: the successful items as partial results, each unresolved item with its error and description, and what was attempted; do not hide the failures, fail the entire batch, or retry permission errors with backoff.",
+          "short": "Report what worked and what failed with reasons; don't hide failures or fail the whole batch."
+        },
+        {
+          "topic": "Empty result vs access failure",
+          "note": "A query that ran and found nothing returns an empty result with `isError` unset or false; a query that could not run (timeout, denied access) must return an error, because an empty list there makes the agent confidently claim nothing exists when nobody looked.",
+          "short": "Found nothing? Return empty. Couldn't search? Return an error, not an empty list."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Because JSON-RPC protocol errors are how the protocol reports errors, a tool failure like a bad input value belongs on that channel.",
+          "why": "The protocol channel is for requests that never reach a working tool; a tool's own failure sent that way is invisible to the model, which then cannot correct the argument.",
+          "fix": "Return a normal `result` with `isError: true` and text that explains what was wrong with the input."
+        },
+        {
+          "trap": "A generic 'Operation failed' message gives the agent all it needs to pick the right recovery, provided it is flagged `isError: true`.",
+          "why": "The flag only says that something failed; a timeout, a malformed date, a policy refusal and a revoked token all look identical, so the agent can only apply one policy to all of them.",
+          "fix": "Add an `errorCategory`, an `isRetryable` flag and a specific description (plus a customer-friendly explanation for business errors)."
+        },
+        {
+          "trap": "Since the agent can add a missing required argument next time it calls, that error deserves `isRetryable: true`.",
+          "why": "`isRetryable` describes resending the identical request, which will fail again until the input changes; being fixable by the agent does not make it retryable.",
+          "fix": "Classify it as `validation` with `isRetryable: false` and name the missing field so the agent corrects it."
+        },
+        {
+          "trap": "When the token does not have the required role, the refusal is a transient error, and backing off and retrying will get through in the end.",
+          "why": "It is a permission error: the same token fails every time it is sent, so backoff only wastes calls.",
+          "fix": "Use `errorCategory: \"permission\"` with `isRetryable: false`; obtain a credential with the right role or escalate."
+        },
+        {
+          "trap": "When a query has no matches, the tool should report it as an error: `isError: true` plus text such as 'No tickets found'.",
+          "why": "The query was answered; flagging it as an error makes the agent apologise for a failure that never happened or retry a query whose answer will not change.",
+          "fix": "Return an empty result with `isError` unset or false, and reserve error results for queries that could not run."
+        },
+        {
+          "trap": "Receiving an `isError: true` result tells you the MCP request failed at the protocol level.",
+          "why": "At the MCP level the response succeeded: the tool existed and executed, and the `isError` flag is its own report that the task failed.",
+          "fix": "Reserve the JSON-RPC protocol channel for requests that never reached a working tool in the first place."
+        }
+      ],
+      "exam_tips": [
+        "Treat `isError: true` as a tool that was found, ran and reported its own failure, which is a successful MCP response. The JSON-RPC protocol channel is the answer only for requests that never got to a working tool.",
+        "The test for `isRetryable` is whether sending exactly the same call again could succeed. If anything has to change first, whether the input, the credential or the policy, the value is false, however easy that change would be for the agent."
+      ],
+      "facts": [
+        {
+          "item": "`-32602`",
+          "detail": "JSON-RPC error code in the lesson's protocol-error example for 'Unknown tool: invalid_tool_name'."
+        },
+        {
+          "item": "`\"result\": {\"content\": [...], \"isError\": true}`",
+          "detail": "Shape of an MCP tool execution error: a normal result with the failure flag set."
+        },
+        {
+          "item": "`\"is_error\": true`",
+          "detail": "Claude API equivalent flag on a `tool_result` block, with the error text in `content`."
+        },
+        {
+          "item": "`CallToolRequest`",
+          "detail": "The request envelope; a request that does not fit its schema is reported on the protocol channel."
+        },
+        {
+          "item": "`structuredContent`",
+          "detail": "Optional part of the result, shaped by the tool's output schema, where structured error metadata can be placed."
+        },
+        {
+          "item": "`errorCategory`: `transient` / `validation` / `business` / `permission`",
+          "detail": "The four failure kinds the lesson uses to tell the agent what has to change."
+        },
+        {
+          "item": "`isRetryable`",
+          "detail": "Boolean saying whether the identical request could succeed if resent; true only for transient errors."
+        },
+        {
+          "item": "`{\"events\": []}`",
+          "detail": "A valid, successful answer meaning the day has no events, not an error."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Protocol error",
+          "def": "A JSON-RPC `error` returned when a request cannot reach a working tool, such as an unknown tool name or a malformed request."
+        },
+        {
+          "term": "Tool execution error",
+          "def": "A normal tool result with `isError: true`, returned when the tool ran but its work failed."
+        },
+        {
+          "term": "`errorCategory`",
+          "def": "Server-defined field naming the kind of failure (transient, validation, business, permission) so the agent knows what must change."
+        },
+        {
+          "term": "`isRetryable`",
+          "def": "Server-defined boolean stating whether resending the identical request could ever succeed."
+        },
+        {
+          "term": "Transient error",
+          "def": "A temporary failure such as a timeout, rate limit or outage that may clear on retry without any change."
+        },
+        {
+          "term": "Business error",
+          "def": "A refusal by a business rule about what was requested, needing an explanation to the user rather than a retry."
+        },
+        {
+          "term": "Permission error",
+          "def": "A refusal because the caller's credentials lack the required access, needing broader access or escalation."
+        },
+        {
+          "term": "Partial results",
+          "def": "The successful portion of a batch returned alongside a clear list of what failed and what was attempted."
+        }
+      ]
+    },
+    {
+      "code": "2.3",
+      "task": "Distribute tools appropriately across agents and configure tool choice",
+      "summary": "This lesson is about which tools each agent should get and how `tool_choice` works. Giving an agent only the few tools its role needs makes its choices more reliable and stops it misusing tools from other jobs. It also explains the four `tool_choice` settings (`auto`, `any`, a forced tool, `none`), when forcing a first call helps, and which models and thinking setups reject forced calls.",
+      "key_concept": {
+        "term": "Scoped tool access",
+        "definition": "An agent receives the tools required by its role and nothing more, except possibly one narrowly scoped tool covering a common need owned by another role. With fewer candidates to choose from, selection becomes more reliable and the agent is kept from using tools outside its job.",
+        "short": "Give each agent only the tools its role needs; fewer tools means better, safer choices."
+      },
+      "notes": [
+        {
+          "topic": "Fewer candidates, better choices",
+          "note": "Selection reliability drops as an agent's tool set grows because each decision has more look-alike options to rule out, not because the model became less capable; overlapping tools also pile up in long lists.",
+          "short": "More tools mean more look-alike options, so the agent picks the wrong one more often."
+        },
+        {
+          "topic": "Working rule: 4-5 tools",
+          "note": "Target roughly 4-5 tools per role. The Agent SDK tool-search page places noticeable accuracy degradation at 30-50 tools loaded together, yet an agent holding 18 tools already faces needlessly hard choices.",
+          "short": "Aim for about 4-5 tools per role; 18 tools already makes choices hard."
+        },
+        {
+          "topic": "Structural fix",
+          "note": "A declining generalist is fixed by splitting it into specialised agents that each choose among about four tools for their stage, not by fewer API calls, a smaller context window, cached results or a more capable model.",
+          "short": "If a general agent gets worse, split it into specialist agents with about 4 tools each."
+        },
+        {
+          "topic": "Remove, do not instruct",
+          "note": "Agents misuse tools outside their speciality (a synthesis agent running its own web searches, a QA agent calling deploy); role instructions in the prompt do not fully prevent this because the tool is still there, while removing the tool makes misuse impossible.",
+          "short": "Prompt rules can't fully stop tool misuse; removing the tool makes misuse impossible."
+        },
+        {
+          "topic": "`tools` allowlist",
+          "note": "An Agent SDK subagent can call precisely the tools named in its `tools` array. Omit `tools` and it gets all tools that subagents can access, in effect the full union.",
+          "short": "A subagent gets only the tools in its `tools` list; without the list, it gets all."
+        },
+        {
+          "topic": "`disallowedTools`",
+          "note": "`disallowedTools` takes named tools out of whatever set was inherited or specified, and it accepts MCP patterns: `mcp__github` removes all of that server's tools.",
+          "short": "`disallowedTools` removes named tools, and `mcp__github` removes all tools from that server."
+        },
+        {
+          "topic": "Scoping vs tool_choice",
+          "note": "Scoping decides which tools an agent has; `tool_choice` decides whether it must call one. After scoping, keep `auto` so each agent can still choose between acting and simply answering.",
+          "short": "Scoping picks which tools an agent has; `tool_choice` decides if it must call one."
+        },
+        {
+          "topic": "Constrained tools",
+          "note": "Replace a raw capability with a workflow-specific tool that enforces the rule itself, e.g. `load_document` that checks the URL is a document instead of `fetch_url`, or `search_contacts` instead of `list_contacts`; the model cannot argue its way around a rule inside the tool.",
+          "short": "Use a narrow tool that checks the rule itself, like `load_document` instead of `fetch_url`."
+        },
+        {
+          "topic": "Constraining a built-in",
+          "note": "A Claude Code subagent (`dbreader`) holding only `Bash`, with a PreToolUse hook scoped to it that rejects SQL write commands, behaves like a read-only query tool.",
+          "short": "A subagent with only Bash and a hook that blocks SQL writes acts like a read-only tool."
+        },
+        {
+          "topic": "Narrow cross-role tool",
+          "note": "A frequent, narrow need owned by another role (a synthesis agent's constant fact checks) gets one scoped tool such as `verify_fact` with no general search; complex or infrequent needs, like claims needing new research, still go through the coordinator.",
+          "short": "Give one narrow tool like `verify_fact` for a frequent need; bigger needs go through the coordinator."
+        },
+        {
+          "topic": "Limiting spawnable subagents",
+          "note": "A coordinator whose `tools` list includes `Agent(worker, researcher)` can spawn only those two named subagents, alongside its direct tools such as `Read` and `Bash`.",
+          "short": "`Agent(worker, researcher)` in `tools` lets a coordinator start only those two subagents."
+        },
+        {
+          "topic": "What each setting guarantees",
+          "note": "`auto` guarantees nothing (default when tools are provided), `any` guarantees some tool but not which, a named `tool` guarantees that tool, and `none` guarantees no tool call (default when no tools are provided); system prompt wording can steer but never guarantee a call.",
+          "short": "`auto` forces nothing, `any` forces some tool, a named tool forces that one, `none` blocks tools."
+        },
+        {
+          "topic": "Forcing order",
+          "note": "Only a forced tool guarantees order: force `extract_metadata` on the first request, return its result, then use `auto` or `any` on follow-up turns so enrichment tools work from real metadata instead of invented values.",
+          "short": "To make a tool run first, force it once, then switch to `auto` or `any`."
+        },
+        {
+          "topic": "When forcing is rejected",
+          "note": "`any` and a forced tool both produce an error under manual extended thinking (`thinking: {type: \"enabled\"}`). Mythos 5.1, Fable 5.1, Sonnet 5.5 and Claude Opus 5.5 reject both with a 400 no matter how thinking is set; on those, rely on `auto` combined with strict tool use or with structured outputs. Adaptive-thinking models (Claude Opus 5, Haiku 5.5) allow forcing, but the response contains no thinking block.",
+          "short": "Some models and manual thinking reject forced tools; use `auto` with strict tool use instead."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "You can stop agents from using tools outside their role without splitting the shared tool set, simply by changing `tool_choice` to `any` or `none`.",
+          "why": "`tool_choice` controls whether a call happens, not which tools exist: the QA agent still holds the deploy tool, `any` forces calls every turn, `none` stops the agent acting, and both remove its choice between acting and replying.",
+          "fix": "Restrict each subagent's `tools` list to its role and keep `tool_choice` at `auto`."
+        },
+        {
+          "trap": "With `tool_choice` set to `any`, the model is guaranteed to start with the correct tool, for example calling `extract_metadata` ahead of the enrichment tools.",
+          "why": "`any` only ensures a tool call happens; it does not pick the tool, so an enrichment tool may still run first on guessed values.",
+          "fix": "Force `{\"type\": \"tool\", \"name\": \"extract_metadata\"}` on the opening request, and move to `auto` or `any` for the turns after it."
+        },
+        {
+          "trap": "Because every model supports forced tool use, requiring a tool call with `{\"type\": \"any\"}` can never go wrong.",
+          "why": "Under manual extended thinking, `any` and forced tools trigger an error; separately, Mythos 5.1, Fable 5.1, Sonnet 5.5 and Claude Opus 5.5 answer them with a 400 whatever the thinking settings are.",
+          "fix": "Look at the model and the thinking setup first. If forcing is not accepted, switch to `auto` paired with strict tool use or with structured outputs (under manual thinking, `auto` or `none`)."
+        },
+        {
+          "trap": "On an adaptive-thinking model, a forced tool call is still preceded by the model's reasoning.",
+          "why": "Forcing is allowed on adaptive-thinking models, but the response then opens directly with the tool call and includes no thinking block.",
+          "fix": "Force the tool only when you can accept losing the thinking block; otherwise use `auto`."
+        }
+      ],
+      "exam_tips": [
+        "If agents are reaching for tools that belong to other roles, the right option narrows each agent's tool list and leaves `tool_choice` at `auto`. Holding on to a shared set while changing to `any` or `none` adjusts the wrong dimension.",
+        "If a particular call has to come before the rest, the answer forces that tool by name on turn one and goes back to `auto` or `any` afterwards. Neither `any` by itself nor improved descriptions can guarantee the order.",
+        "When selection accuracy drops as more tools are added, the fix is fewer candidates per decision, meaning specialised agents holding about 4-5 tools each; caching, cutting API calls or a stronger model are not the answer."
+      ],
+      "facts": [
+        {
+          "item": "`{\"type\": \"auto\"}`",
+          "detail": "Default when tools are provided; Claude decides whether to call a tool, with no guarantee."
+        },
+        {
+          "item": "`{\"type\": \"any\"}`",
+          "detail": "Some tool must be called, but Claude picks which."
+        },
+        {
+          "item": "`{\"type\": \"tool\", \"name\": \"...\"}`",
+          "detail": "The named tool is called on this turn."
+        },
+        {
+          "item": "`{\"type\": \"none\"}`",
+          "detail": "No tool is called; the default when no tools are provided."
+        },
+        {
+          "item": "`disable_parallel_tool_use: true`",
+          "detail": "Governs parallel calls; it is set within the `tool_choice` object rather than at the request's top level."
+        },
+        {
+          "item": "`tools` (subagent definition)",
+          "detail": "Lists exactly which tools may be called; leave it out and the subagent receives all tools that subagents can access."
+        },
+        {
+          "item": "`disallowedTools` with `mcp__github`",
+          "detail": "Removes named tools, or every tool from an MCP server via a pattern, from the subagent's set."
+        },
+        {
+          "item": "`Agent(worker, researcher)`",
+          "detail": "Entry in a coordinator's `tools` that limits which subagents it may spawn."
+        },
+        {
+          "item": "`thinking: {type: \"enabled\"}`",
+          "detail": "Manual extended thinking. It makes `any` and forced tools error out, leaving `auto` or `none` as the options."
+        },
+        {
+          "item": "Mythos 5.1, Fable 5.1, Sonnet 5.5, Claude Opus 5.5",
+          "detail": "Return a 400 for `any` and forced `tool` regardless of thinking settings."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Scoped tool access",
+          "def": "Giving each agent only the tools its role needs, plus at most one narrow tool for a frequent cross-role need."
+        },
+        {
+          "term": "`tool_choice`",
+          "def": "Per-request field controlling whether Claude must call a tool: `auto`, `any`, a named `tool`, or `none`."
+        },
+        {
+          "term": "Forced tool use",
+          "def": "Setting `tool_choice` to a named tool so that exact tool is called on that turn."
+        },
+        {
+          "term": "Constrained tool",
+          "def": "A workflow-specific tool that enforces its own limits, replacing a generic raw capability."
+        },
+        {
+          "term": "Narrow cross-role tool",
+          "def": "One scoped tool that gives an agent a single frequent capability owned by another role, without that role's full tool set."
+        },
+        {
+          "term": "`disallowedTools`",
+          "def": "Subagent field that removes named tools, or MCP patterns like `mcp__github`, from its tool set."
+        },
+        {
+          "term": "Strict tool use",
+          "def": "Used with `auto` on models that reject forcing, to obtain schema-valid tool inputs."
+        }
+      ]
+    },
+    {
+      "code": "2.4",
+      "task": "Integrate MCP servers into Claude Code and agent workflows",
+      "summary": "This lesson is about connecting MCP servers to Claude Code. It explains the three scopes (local, project and user), which file each one saves to, and why only project scope in `.mcp.json` shares a server with the team. It also covers `${VAR}` expansion for personal tokens, what happens when two scopes use the same server name, and `headersHelper` for custom sign-in schemes.",
+      "key_concept": {
+        "term": "MCP server scope",
+        "definition": "In Claude Code, each MCP server sits in a single scope, and that scope determines both who can use it and the file it is saved in. Local and user scope save to your private `~/.claude.json`, while project scope saves to a shared `.mcp.json` that is committed.",
+        "short": "Each MCP server has one scope that decides who can use it and which file stores it."
+      },
+      "notes": [
+        {
+          "topic": "Three scopes",
+          "note": "`claude mcp add --scope` accepts `local` (the default), `project` and `user`; the scope decides which file holds the entry and therefore whether teammates get the server.",
+          "short": "Scope is `local` (default), `project` or `user`; it decides whether teammates get the server."
+        },
+        {
+          "topic": "Local vs user scope",
+          "note": "Local and user scope both save to your private `~/.claude.json`. Local goes under this project's entry and applies to you in this repo alone, which suits an unstable prototype; user goes under the top-level `mcpServers` key and applies to you in every project.",
+          "short": "Local and user scope are private to you; local works in one project, user works in all."
+        },
+        {
+          "topic": "Project scope",
+          "note": "Project scope writes `.mcp.json` at the project root, which is committed so everyone who clones gets the server; use it for team tooling such as a shared GitHub or Sentry server.",
+          "short": "Project scope saves to a committed `.mcp.json`, so the whole team gets the server."
+        },
+        {
+          "topic": "Default-scope surprise",
+          "note": "Leaving out `--scope` makes the server local, which is why `/mcp` lists nothing for it in other repositories. Claude Code looks only at `<project>/.mcp.json` and `~/.claude.json`; it silently skips any other location, `~/.claude/mcp.json` included.",
+          "short": "Without `--scope` the server is local, so other projects don't see it."
+        },
+        {
+          "topic": "Variable expansion",
+          "note": "Claude Code expands `${VAR}` from the environment of the person running it, in any of the `url`, `headers`, `command`, `args` and `env` fields; writing `${VAR:-default}` adds a fallback for when the variable is not set.",
+          "short": "Claude Code fills in `${VAR}` from your environment, and `${VAR:-default}` adds a fallback value."
+        },
+        {
+          "topic": "Team rollout pattern",
+          "note": "For a shared server with personal tokens use project scope, a header `Authorization: Bearer ${GITHUB_TOKEN}`, and have each engineer export `GITHUB_TOKEN`; user scope is not shared, local scope never writes `.mcp.json`, and gitignoring `.mcp.json` defeats the sharing.",
+          "short": "Shared server, personal tokens: use project scope with `${GITHUB_TOKEN}`, and each engineer sets their own."
+        },
+        {
+          "topic": "No defaults for secrets",
+          "note": "Give fallbacks only to non-secret values like `${API_REGION:-us-east-1}`. A token that is missing should cause a visible failure, and putting a real token in the committed fallback makes the variable pointless. Claude Code still loads the server when a variable is unset.",
+          "short": "Give fallbacks only to non-secret values; a missing token should cause a clear error."
+        },
+        {
+          "topic": "Name collisions",
+          "note": "If two scopes contain the same server name, Claude Code takes one complete definition and merges no fields. For the developer who has a local entry, that entry loads exactly as written; teammates who lack one keep the project definition.",
+          "short": "If two scopes share a server name, one full entry is used; fields are never merged."
+        },
+        {
+          "topic": "Resolving conflicts",
+          "note": "Conflicts where one name points at different endpoints are flagged by Claude Code in both `claude mcp list` and `/mcp`. Each endpoint keeps its own OAuth sign-in, and the fix is to delete the entry you do not want with `claude mcp remove <name> --scope <scope>`.",
+          "short": "Claude Code flags name conflicts; fix one by removing the unwanted entry with `claude mcp remove`."
+        },
+        {
+          "topic": "Choosing authentication",
+          "note": "Static header for long-lived tokens (GitHub; `--header` or `headers`, ideally via `${VAR}`), OAuth for hosted HTTP servers with browser sign-in (Sentry; finish in `/mcp`, tokens stored and refreshed automatically), and `headersHelper` when neither fits.",
+          "short": "Use a static header for long-lived tokens, OAuth for browser sign-in, and `headersHelper` for anything else."
+        },
+        {
+          "topic": "headersHelper details",
+          "note": "Claude Code runs the named command to produce request headers, passing context such as `CLAUDE_CODE_MCP_SERVER_NAME` and `CLAUDE_CODE_MCP_SERVER_URL`; its headers override same-name static headers, and the script should be an absolute path or on PATH.",
+          "short": "`headersHelper` runs a command that builds request headers, and its headers win over static ones."
+        },
+        {
+          "topic": "Header-auth failures",
+          "note": "A 401 or 403 from a server authenticated by an `Authorization` header is reported as a failed connection with no sign-in offered, because the configured credential is what needs fixing; whitespace in header values triggers a warning but is sent as written.",
+          "short": "With a header token, a 401 or 403 means a failed connection; fix the token you set."
+        },
+        {
+          "topic": "Community servers first",
+          "note": "Notion, Asana, Sentry, GitHub, Stripe and HubSpot publish hosted servers that one `claude mcp add` connects and the vendor maintains; build a custom server (the `mcp-server-dev` plugin has a build skill) only for team-specific workflows like an internal deploy-approval process.",
+          "short": "Use ready-made MCP servers from vendors first; build your own only for team-specific workflows."
+        },
+        {
+          "topic": "Descriptions that compete",
+          "note": "An MCP tool described only as 'Searches code' loses to Grep; state what it returns, when to use it and when the built-in is better, what parameters mean, and caveats, within the 4,096-character cap (upfront tools and server instructions) or 16,384 (loaded via tool search), and prefix names with the service.",
+          "short": "A vague MCP tool description loses to Grep; say what it returns and when to use it."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Adding a server at local scope saves it in the project's `.mcp.json`, where each teammate can swap a placeholder for their own token.",
+          "why": "Local scope writes to your own `~/.claude.json` under the project's entry, so nothing is shared and teammates never see the entry.",
+          "fix": "For a team rollout use project scope (`.mcp.json`) with `Authorization: Bearer ${GITHUB_TOKEN}` and have each person set the variable."
+        },
+        {
+          "trap": "Claude Code will not load a server from `.mcp.json` when one of its `${VAR}` references has no value set.",
+          "why": "The lesson treats this as false: an unset variable without a default does not stop the server from loading. That is why secrets should get no default value, so a missing token fails visibly instead of silently using a committed one.",
+          "fix": "Do not rely on a load refusal; give non-secret values a `${VAR:-default}` fallback and leave secrets without one."
+        },
+        {
+          "trap": "A server name defined in both local and project scope gets its two entries combined, one field at a time, by Claude Code.",
+          "why": "Collisions are resolved by picking one whole definition (the local one for that developer), and nothing is copied over from the other; Claude Code also flags the conflict.",
+          "fix": "Decide which endpoint should stay and delete the other entry using `claude mcp remove <name> --scope <scope>`."
+        },
+        {
+          "trap": "Whatever the custom token scheme, aiming the `oauth` configuration at the identity system will make it work.",
+          "why": "The OAuth flow needs a real OAuth authorization server; a Kerberos realm or other custom identity system is not one, so there is nothing for the flow to talk to.",
+          "fix": "Use `headersHelper` to run a script that mints the token and returns the header on each connection."
+        },
+        {
+          "trap": "A brief tool description is sufficient, since the name already makes clear what the tool does.",
+          "why": "The agent chooses tools by their descriptions. With only a name and 'Searches code', it has no reason to switch away from a built-in it already knows, such as Grep, and a new name does not supply the missing information.",
+          "fix": "Describe what the tool returns, when to use it versus the built-in, what each parameter does, and its limits."
+        },
+        {
+          "trap": "The right way to handle a custom token scheme is an intermediary service that translates it into the API keys or OAuth tokens Claude Code already supports.",
+          "why": "Custom schemes are supported directly by producing the header dynamically, so no extra intermediary is needed.",
+          "fix": "Configure `headersHelper`."
+        }
+      ],
+      "exam_tips": [
+        "`headersHelper` is the answer whenever a server's custom token scheme has no OAuth authorization server behind it, such as a token derived from Kerberos and minted for each connection. Distractors either insert an intermediary auth service or aim the `oauth` block at a system that is not OAuth."
+      ],
+      "facts": [
+        {
+          "item": "`claude mcp add --scope local|project|user`",
+          "detail": "Chooses where the server is stored; `local` is the default when no flag is given."
+        },
+        {
+          "item": "`~/.claude.json`",
+          "detail": "Private file holding local servers under the project's entry and user servers under the top-level `mcpServers` key."
+        },
+        {
+          "item": "`.mcp.json`",
+          "detail": "Project-root file for project-scoped servers, committed and shared with everyone who clones."
+        },
+        {
+          "item": "`~/.claude/mcp.json`",
+          "detail": "Not read by Claude Code; a config placed there is ignored without any error."
+        },
+        {
+          "item": "`${VAR}` / `${VAR:-default}`",
+          "detail": "Environment expansion supported in `url`, `headers`, `command`, `args` and `env`; the second form adds a fallback."
+        },
+        {
+          "item": "`claude mcp remove <name> --scope <scope>`",
+          "detail": "Removes a server definition from one scope, used to resolve name conflicts."
+        },
+        {
+          "item": "`headersHelper`",
+          "detail": "Command that generates request headers; receives `CLAUDE_CODE_MCP_SERVER_NAME` and `CLAUDE_CODE_MCP_SERVER_URL`, and its headers override same-name static ones."
+        },
+        {
+          "item": "`claude mcp add --transport http notion https://mcp.notion.com/mcp`",
+          "detail": "One-line connection to a vendor-hosted MCP server."
+        },
+        {
+          "item": "4,096 / 16,384 characters",
+          "detail": "Caps for server instructions and upfront tool descriptions, and for descriptions loaded through tool search."
+        },
+        {
+          "item": "401 / 403 with header auth",
+          "detail": "Reported as a failed connection, with no sign-in offered."
+        }
+      ],
+      "terms": [
+        {
+          "term": "MCP server scope",
+          "def": "The setting (local, project or user) that decides where a server's config is stored and who gets it."
+        },
+        {
+          "term": "`.mcp.json`",
+          "def": "Committed project-root file that shares project-scoped MCP servers with the whole team."
+        },
+        {
+          "term": "`~/.claude.json`",
+          "def": "Private per-user file that stores local-scoped and user-scoped MCP servers."
+        },
+        {
+          "term": "Environment variable expansion",
+          "def": "`${VAR}` references in MCP config that Claude Code fills from each user's environment."
+        },
+        {
+          "term": "`headersHelper`",
+          "def": "A configured command Claude Code runs to generate request headers for custom authentication schemes."
+        },
+        {
+          "term": "Scope conflict",
+          "def": "One server name defined in several scopes with different endpoints; one whole definition loads and the conflict is flagged."
+        },
+        {
+          "term": "Community MCP server",
+          "def": "An existing, often vendor-maintained server (e.g. Notion, Sentry, GitHub) that you connect instead of building."
+        }
+      ]
+    },
+    {
+      "code": "2.5",
+      "task": "Select and apply built-in tools (Read, Write, Edit, Bash, Grep, Glob) effectively",
+      "summary": "This lesson is about choosing the right built-in tool in Claude Code. Grep searches file contents, Glob matches file paths, Read and Write move whole files, Edit changes one exact and unique piece of text, and Bash is for running things like tests and builds. The core habit is to find files before reading them, which keeps the context small, plus knowing how to recover when an Edit fails.",
+      "key_concept": {
+        "term": "Locate before you load",
+        "definition": "The built-in tools each have one narrow job. Locating things is for Grep and Glob; Read then pulls in just the files those searches identified; Edit swaps out a single exact, unique piece of text. Following that sequence keeps the context small and the edits precise.",
+        "short": "Find files with Grep and Glob, Read only what you found, then Edit one exact spot."
+      },
+      "notes": [
+        {
+          "topic": "Three jobs, six tools",
+          "note": "Grep and Glob locate, Read and Write carry whole files into and out of context, and Edit and Bash modify files or execute commands. The mistake seen most often is choosing the wrong one of the two finders.",
+          "short": "Grep and Glob find, Read and Write move whole files, Edit and Bash change or run things."
+        },
+        {
+          "topic": "Grep searches contents",
+          "note": "Grep takes a regex `pattern`, can be limited with a `glob` filter (e.g. only `*.ts`), and its `output_mode` returns paths (`files_with_matches`, the default), per-file hit counts (`count`) or matching lines (`content`).",
+          "short": "Grep searches inside files with a regex and can return paths, counts, or matching lines."
+        },
+        {
+          "topic": "Size before you load",
+          "note": "Before a rename across hundreds of files, run a `files_with_matches` or `count` search to see the scope of the change without pulling any file into context.",
+          "short": "Before a big rename, count matches first to see the size without loading files."
+        },
+        {
+          "topic": "Glob matches paths",
+          "note": "Glob answers questions about names and structure (every `**/*.test.tsx`, every migration under `db/`) and never opens a file, making it the cheapest structural query.",
+          "short": "Glob finds files by name or path pattern without opening them, so it's the cheapest search."
+        },
+        {
+          "topic": "Conventions turn content into paths",
+          "note": "Given a convention where `Button.test.tsx` always tests `Button.tsx`, untested components fall out of two Globs and a comparison of the lists. Grepping components for 'test', reading every file or running the suite all cost more and are less reliable.",
+          "short": "If test files follow a naming rule, compare two Glob lists to find untested files."
+        },
+        {
+          "topic": "Dedicated tools over Bash",
+          "note": "Prefer Grep, Glob, Read, Edit and Write to `find | xargs grep`, `cat`, `sed` and `awk`: their inputs are structured, their output is formatted for the model, and the read-only ones need no approval prompt, unlike a shell command. Bash is for tests, builds, git and package managers.",
+          "short": "Prefer the built-in file tools over shell commands; use Bash for tests, builds and Git."
+        },
+        {
+          "topic": "Edit rules",
+          "note": "Edit replaces `old_string` with `new_string` only if the match is exact (whitespace and indentation included) and unique in the file; refusing ambiguous matches is what makes it safe.",
+          "short": "Edit replaces text only when the match is exact and appears once in the file."
+        },
+        {
+          "topic": "Non-unique match",
+          "note": "When `old_string` occurs more than once, add neighbouring lines from the target function until the text is unique; `replace_all: true` changes every occurrence, and a prior Grep does not help because Edit never uses search results to pick a match.",
+          "short": "If the text repeats, add nearby lines until it is unique; `replace_all` changes every copy."
+        },
+        {
+          "topic": "Stale file",
+          "note": "If the file changed since Claude last read it (e.g. a teammate edited it), `old_string` no longer matches; retrying is pointless, so Read the file again and rebuild the Edit from its current contents.",
+          "short": "If the file changed since you read it, Read it again and redo the Edit."
+        },
+        {
+          "topic": "Read + Write fallback",
+          "note": "If there is no unique anchor (generated code, blocks repeated many times, or an edit that rewrites the bulk of the file), Read the entire file, make the change across its full contents, then Write the whole result back.",
+          "short": "With no unique text to match, Read the whole file, change it, and Write it all back."
+        },
+        {
+          "topic": "Write replaces everything",
+          "note": "Write builds or replaces an entire file from `content`; pass it only the changed line and the file ends up one line long. You Read first because the rest of the file is needed, and older models reject a Write to an existing file that has not been read.",
+          "short": "Write replaces the whole file, so always Read first and pass the full content."
+        },
+        {
+          "topic": "Incremental exploration",
+          "note": "To trace a flow in an unfamiliar repo: read `CLAUDE.md` (or `AGENTS.md`), Grep for the entry point such as the `/login` route, Read that file and note its imports, then follow each import down the call chain until you reach the query.",
+          "short": "In a new repo, read `CLAUDE.md`, Grep for the entry point, then follow its imports."
+        },
+        {
+          "topic": "Search-led, not luck-led",
+          "note": "What one step finds determines the next. Loading everything at the start is the most expensive option and hides the relevant files, and choosing files by modification date or size is a matter of luck.",
+          "short": "Let each search guide the next step; loading everything or picking files by date wastes context."
+        },
+        {
+          "topic": "Wrapper modules and aliases",
+          "note": "When a Grep for a function misses callers, a wrapper or barrel module may re-export it under other names: Read the wrapper or Grep its export lines, list every exported name including aliases, then Grep for each one plus the original name.",
+          "short": "If Grep misses callers, check wrapper files for renamed exports and Grep for every name."
+        }
+      ],
+      "traps": [
+        {
+          "trap": "Searching every component's contents with Grep for the word 'test' is how to find the ones without a test file.",
+          "why": "Nothing requires a component to refer to its own test, so the search cannot be trusted; when there is a naming convention, the answer sits in file paths rather than file contents.",
+          "fix": "Run one Glob for the component files and another for the `*.test.tsx` files, and check the two lists against each other."
+        },
+        {
+          "trap": "A non-unique Edit failure is solved by `replace_all: true`, because it limits the change to the first match.",
+          "why": "`replace_all: true` replaces every occurrence in the file, so both copies would change when only one should.",
+          "fix": "Lengthen `old_string` with neighbouring lines until it is unique, and use `replace_all` only when every copy should change."
+        },
+        {
+          "trap": "If there is no unique anchor for Edit, pass Write only the corrected line.",
+          "why": "Write replaces the entire file with its `content`, so the file would be reduced to that single line.",
+          "fix": "Read the entire file, apply the fix to all of its contents, then Write back the complete file."
+        },
+        {
+          "trap": "To trace a flow, the agent is best served by loading every file under `src` before it starts.",
+          "why": "It fills the context window with unrelated code and buries the few files that matter, making it the most expensive and least useful approach.",
+          "fix": "Read `CLAUDE.md`, Grep for the entry point, then Read along the imports until the target is reached."
+        },
+        {
+          "trap": "For a question about file names or file contents, reading every file or running Bash (e.g. `find | xargs grep`) works just as well as the dedicated tools.",
+          "why": "The dedicated tools have structured inputs, model-shaped output and read-only operation that needs no approval prompt; Bash is meant for real execution work.",
+          "fix": "Pick Glob if the name or path of a file holds the answer, and Grep if its text does."
+        }
+      ],
+      "exam_tips": [
+        "First decide where the answer lives. If it is in a name or path, use Glob; if it is in the text, use Grep. Any option that reaches for Bash or reads all files to answer either kind of question is nearly always a distractor.",
+        "Pick the Edit recovery that fits why it failed. Duplicate text calls for a longer `old_string`; a file that changed on disk calls for a fresh Read; no unique anchor calls for a full Read followed by a Write of the whole file. An option claiming Write 'replaces just that line' is wrong."
+      ],
+      "facts": [
+        {
+          "item": "Grep `output_mode`",
+          "detail": "`files_with_matches` (default) returns paths, `count` returns hits per file, `content` returns matching lines."
+        },
+        {
+          "item": "Grep inputs",
+          "detail": "`pattern` (regex), `path`, `glob` filter, `output_mode`, `-i` and `multiline`."
+        },
+        {
+          "item": "Glob inputs",
+          "detail": "A `pattern` such as `**/*.ts` and a `path`; returns file paths only."
+        },
+        {
+          "item": "Edit inputs",
+          "detail": "`file_path`, `old_string`, `new_string` and `replace_all`."
+        },
+        {
+          "item": "`replace_all: true`",
+          "detail": "Makes Edit replace every occurrence of `old_string` in the file."
+        },
+        {
+          "item": "Write inputs",
+          "detail": "`file_path` and `content`; replaces the entire file with `content`."
+        },
+        {
+          "item": "`find . -name \"*.py\" | xargs grep \"pattern\"`",
+          "detail": "Shell equivalent of a search that the dedicated tools do better."
+        },
+        {
+          "item": "`CLAUDE.md` / `AGENTS.md`",
+          "detail": "First file to read when exploring a repository, for documented architecture and conventions."
+        }
+      ],
+      "terms": [
+        {
+          "term": "Locate before you load",
+          "def": "Find relevant files with Grep or Glob first and Read only what they point to."
+        },
+        {
+          "term": "Grep",
+          "def": "Built-in tool that searches file contents with a regular expression."
+        },
+        {
+          "term": "Glob",
+          "def": "Built-in tool that matches file paths by pattern without opening files."
+        },
+        {
+          "term": "Edit anchor",
+          "def": "The `old_string` text, which must match exactly and occur once for Edit to succeed."
+        },
+        {
+          "term": "`replace_all`",
+          "def": "Edit option that replaces every occurrence of `old_string` instead of requiring a unique match."
+        },
+        {
+          "term": "Read + Write fallback",
+          "def": "Reading a whole file, changing it in full and writing it back when Edit has no unique anchor."
+        },
+        {
+          "term": "Wrapper (barrel) module",
+          "def": "A module that re-exports functions, possibly under aliases, so callers may use names other than the original."
+        }
+      ]
+    }
+  ],
+  "comparisons": [
+    {
+      "title": "tool_choice: auto vs any vs forced tool vs none",
+      "columns": [
+        "Setting",
+        "Guarantee",
+        "Use when",
+        "Watch out"
+      ],
+      "rows": [
+        [
+          "`{\"type\": \"auto\"}`",
+          "None; Claude decides each turn (default when tools are provided)",
+          "Role-scoped agents that must choose between acting and replying",
+          "System prompt wording can steer but never guarantees a call"
+        ],
+        [
+          "`{\"type\": \"any\"}`",
+          "Some tool is called; Claude picks which",
+          "A tool call is required on each turn, e.g. an SMS bot that answers through `send_text_to_user`",
+          "Does not control which tool or the order; rejected with manual extended thinking and on Mythos 5.1, Fable 5.1, Sonnet 5.5, Opus 5.5"
+        ],
+        [
+          "`{\"type\": \"tool\", \"name\": \"...\"}`",
+          "Claude calls exactly the tool you named",
+          "One specific call must happen now, e.g. `extract_metadata` before enrichment",
+          "Same rejections as `any`; on adaptive-thinking models no thinking block is produced; switch back to `auto`/`any` afterwards"
+        ],
+        [
+          "`{\"type\": \"none\"}`",
+          "Claude calls no tool (the default if the request includes no tools)",
+          "A turn that must be text only",
+          "On a subagent it leaves the agent unable to act at all"
+        ]
+      ]
+    },
+    {
+      "title": "Structured error categories and isRetryable",
+      "columns": [
+        "Category",
+        "isRetryable",
+        "What must change",
+        "Agent's next move",
+        "Example"
+      ],
+      "rows": [
+        [
+          "Transient",
+          "`true`",
+          "Nothing; the service must recover",
+          "Retry with backoff; a subagent absorbs it unless retries run out",
+          "Timeout, rate limit, HTTP 500 from the weather API"
+        ],
+        [
+          "Validation",
+          "`false`",
+          "The arguments sent",
+          "Fix the bad argument and retry; the error text should say which field failed",
+          "Missing required `location` or `customer_id`"
+        ],
+        [
+          "Business",
+          "`false`",
+          "Either the request or the state of the account",
+          "Tell the user in plain, customer-facing language which rule applies and what they can do instead",
+          "Account under legal hold; a booking over the 10-attendee limit"
+        ],
+        [
+          "Permission",
+          "`false`",
+          "The credentials",
+          "Get broader access or escalate to the coordinator",
+          "Token scoped to `read` calling `deploy_service`"
+        ],
+        [
+          "Empty match (not an error)",
+          "n/a: `isError` false",
+          "Nothing; the query was answered",
+          "Report that there are no matches",
+          "`search_tickets` returns an empty list"
+        ]
+      ]
+    },
+    {
+      "title": "MCP server scopes in Claude Code: local vs project vs user",
+      "columns": [
+        "Scope",
+        "Stored in",
+        "Who gets it",
+        "Use it for"
+      ],
+      "rows": [
+        [
+          "local (default, no `--scope`)",
+          "`~/.claude.json`, inside the entry for this project",
+          "Just you, in this repository only",
+          "Trying an unstable prototype server in one repository"
+        ],
+        [
+          "project (`--scope project`)",
+          "`.mcp.json` at the project root, committed",
+          "Everyone who clones the repository",
+          "Team servers such as GitHub or Sentry, with secrets as `${VAR}`"
+        ],
+        [
+          "user (`--scope user`)",
+          "`~/.claude.json`, top-level `mcpServers` key",
+          "Only you, in every project",
+          "A personal or experimental server you want everywhere"
+        ]
+      ]
+    },
+    {
+      "title": "Built-in tools: Grep vs Glob vs Read vs Write vs Edit vs Bash",
+      "columns": [
+        "Tool",
+        "Job",
+        "Use when",
+        "Watch out"
+      ],
+      "rows": [
+        [
+          "Grep",
+          "Searches file contents with a regex",
+          "Callers of a function, an error message, imports, how many files mention a name",
+          "Start with `files_with_matches` or `count` to size a change before loading files"
+        ],
+        [
+          "Glob",
+          "Matches file paths; never opens files",
+          "Finding files by name or extension, pairing tests with sources, directory shape",
+          "Answers path questions only, not what files contain"
+        ],
+        [
+          "Read",
+          "Loads a file into context",
+          "Loading only the files searches pointed to, or before a Write",
+          "Reading everything up front floods context and buries what matters"
+        ],
+        [
+          "Edit",
+          "Exact, unique string replacement",
+          "A small change with a unique anchor",
+          "Fails on inexact, non-unique or stale text; `replace_all` changes every copy"
+        ],
+        [
+          "Write",
+          "Creates or overwrites a whole file",
+          "New files, or once the file has been Read and no unique anchor exists",
+          "Must be given the entire file content, never just one line"
+        ],
+        [
+          "Bash",
+          "Runs commands",
+          "Tests, builds, git, package managers",
+          "Not for searching or reading files; shell commands need approval"
+        ]
+      ]
+    }
+  ]
+}
