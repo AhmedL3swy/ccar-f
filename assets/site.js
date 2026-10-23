@@ -130,6 +130,9 @@
     var sumKey = null, sumAlt = false;
     var sumTrx = $("#sum-trx"), sumBody = $("#sum-body"), sumTitle = $("#sum-title"), sumLabel = $("#sum-label");
     var prefix = dlg.getAttribute("data-prefix");
+    // The cheat tables index lists every domain but holds none of their cards: its links go to each domain's page.
+    var linkPage = dlg.getAttribute("data-link-page") || "";
+    var sectionHref = function (code) { return linkPage.replace("{n}", code.split(".")[0]) + "#" + prefix + "-" + code.replace(".", "-"); };
     var findSum = function (key) {
       if (/^d\d$/.test(key)) return { dd: sumData[key], task: null };
       var dd = sumData["d" + key.split(".")[0]];
@@ -155,18 +158,19 @@
           '<h3 class="sum-sub">' + dlg.getAttribute(sumAlt ? "data-alt-all" : "data-all") + "</h3>" +
           dd.tasks.map(function (t) {
             var T = sumAlt ? t.alt : t;
-            return '<section class="sum-item"><h4><a href="#' + prefix + "-" + t.code.replace(".", "-") + '" data-sum-go><span class="sum-code">' + t.code + "</span> " + T.task + "</a></h4>" + T.summary + "</section>";
+            return '<section class="sum-item"><h4><a href="' + sectionHref(t.code) + '" data-sum-go><span class="sum-code">' + t.code + "</span> " + T.task + "</a></h4>" + T.summary + "</section>";
           }).join("");
       }
       sumBody.scrollTop = 0;
     };
     var openSum = function (key) {
       var f = findSum(key);
-      if (!f.dd || (!/^d\d$/.test(key) && !f.task)) return;
+      if (!f.dd || (!/^d\d$/.test(key) && !f.task)) return false;
       sumKey = key; sumAlt = false; renderSum();
       showModal(dlg);
+      return true;
     };
-    // Cheat table pages: "#summary" in the URL (from the home page and the cheat tables index) opens the domain
+    // Cheat table pages: "#summary" in the URL (from the home page) opens the domain
     // summary; closing it drops the hash, so a refresh doesn't open it again.
     var dropSumHash = function () {
       if (location.hash === "#summary") { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* not allowed here */ } }
@@ -174,7 +178,8 @@
     var closeSum = function () { closeModal(dlg); dropSumHash(); };
     document.addEventListener("click", function (e) {
       var b = e.target.closest("[data-sum]");
-      if (b) openSum(b.getAttribute("data-sum"));
+      // A Summary link (cheat tables index) opens the dialog here instead of following its no-JS fallback href.
+      if (b && openSum(b.getAttribute("data-sum"))) e.preventDefault();
     });
     $("#sum-close").addEventListener("click", closeSum);
     sumTrx.addEventListener("click", function () { sumAlt = !sumAlt; renderSum(); });
@@ -188,18 +193,26 @@
     if (defaultSum && location.hash === "#summary") openSum(defaultSum);
   }
 
-  /* ---------- Cheat table pages: the pinned jump bar follows the scroll position ---------- */
-  var sheet = $("[data-sheet]");
+  /* ---------- Cheat tables (index and each table): the pinned jump bar follows the scroll position ---------- */
+  var sheet = $("[data-jump]");
   if (sheet) {
     var jumpBar = $(".jumpbar", sheet);
     var jumpLinks = $$(".jumpbar a[href^='#']", sheet);
     var jumpTargets = jumpLinks.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+    // Sections inside a closed fold aren't laid out, so they never count as being in view.
+    var shown = function (t) { return t && !(t.parentNode.closest && t.parentNode.closest("details:not([open])")); };
     // The first section that starts above the line and hasn't scrolled past it. Cards share rows on wide
     // screens, so this picks the row's first card; between sections it falls back to the last one started.
+    // At the very bottom the last sections can't reach the line, so the last one showing on screen counts.
     var inView = function () {
-      var line = jumpBar.getBoundingClientRect().bottom + 24, idx = -1, last = -1;
+      if (window.innerHeight + window.scrollY >= root.scrollHeight - 2) {
+        for (var k = jumpTargets.length - 1; k >= 0; k--) if (shown(jumpTargets[k]) && jumpTargets[k].getBoundingClientRect().top < window.innerHeight) return k;
+      }
+      // Below the bar, and at least as low as where a followed link lands (scroll-padding-top), so it counts.
+      var pad = parseFloat(window.getComputedStyle(root).scrollPaddingTop) || 0;
+      var line = Math.max(jumpBar.getBoundingClientRect().bottom + 24, pad + 8), idx = -1, last = -1;
       jumpTargets.forEach(function (t, i) {
-        if (!t) return;
+        if (!shown(t)) return;
         var r = t.getBoundingClientRect();
         if (r.top > line) return;
         last = i;
@@ -223,30 +236,36 @@
     };
     window.addEventListener("scroll", function () { if (!ticking) { ticking = true; window.requestAnimationFrame(follow); } }, { passive: true });
 
-    // Facts & terms is closed until its switch is turned on; the choice is remembered. Following a link into
-    // the section (jump bar, language switch) opens it without changing the remembered choice.
-    var facts = $("details#facts", sheet), linkOpened = false;
-    var openFacts = function (target) {
-      if (!facts || !target || !facts.contains(target) || facts.open) return;
-      linkOpened = true;
-      facts.open = true;
-    };
-    if (facts) {
-      if (store.get("ccarf-ft") === "1") facts.open = true;
-      facts.addEventListener("toggle", function () {
-        if (!linkOpened) store.set("ccarf-ft", facts.open ? "1" : "0");
-        linkOpened = false;
+    // Sections fold away behind a switch (<details data-fold>). The summary and the decision table start open,
+    // the rest closed; each switch is remembered across pages and visits. Following a link into a closed section
+    // (jump bar, summary, language switch) opens it without changing the remembered choice.
+    var folds = $$("details[data-fold]", sheet), linkOpened = null;
+    var foldKey = function (f) { return "ccarf-fold-" + f.getAttribute("data-fold"); };
+    folds.forEach(function (f) {
+      var saved = store.get(foldKey(f));
+      if (saved === null && f.id === "facts") saved = store.get("ccarf-ft"); // the facts switch's earlier key
+      if (saved === "1" || saved === "0") f.open = saved === "1";
+      f.addEventListener("toggle", function () {
+        if (linkOpened !== f) store.set(foldKey(f), f.open ? "1" : "0");
+        linkOpened = null;
       });
-    }
-    jumpLinks.forEach(function (a, i) { a.addEventListener("click", function () { openFacts(jumpTargets[i]); }); });
+    });
+    var openFor = function (target) {
+      if (!target) return false;
+      var opened = false;
+      folds.forEach(function (f) { if (!f.open && f.contains(target)) { linkOpened = f; f.open = true; opened = true; } });
+      return opened;
+    };
+    // Runs before the browser follows the link, so the target is laid out by the time it scrolls there.
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest("a[href^='#']");
+      if (a && a.getAttribute("href").length > 1) openFor(document.getElementById(a.getAttribute("href").slice(1)));
+    });
     var hashTarget = location.hash.length > 1 ? document.getElementById(location.hash.slice(1)) : null;
-    if (hashTarget && facts && facts.contains(hashTarget) && !facts.open) {
-      openFacts(hashTarget);
-      window.requestAnimationFrame(function () { hashTarget.scrollIntoView(); });
-    }
+    if (openFor(hashTarget)) window.requestAnimationFrame(function () { hashTarget.scrollIntoView(); });
     follow();
     getAnchor = function () {
-      if (dlg && dlg.open) return "summary";
+      if (dlg && dlg.open && dlg.getAttribute("data-default")) return "summary";
       var i = inView();
       return i >= 0 ? jumpLinks[i].getAttribute("href").slice(1) : "";
     };
@@ -266,6 +285,9 @@
   var filtersBtn = $("[data-side-filters]", page);
   var state = { d: "all", kinds: {} };
   kindBtns.forEach(function (b) { state.kinds[b.dataset.kind] = b.getAttribute("aria-pressed") === "true"; });
+  // The domain and row-type filters are remembered per page (notes, traps) for the next visit.
+  var filterKey = "ccarf-filters-" + (page.getAttribute("data-store") || "page");
+  var saveFilters = function () { store.set(filterKey, JSON.stringify({ d: state.d, kinds: state.kinds })); };
 
   // Search text = the row's content only; button labels ("EN", "More"…) and the "In short" tag are left out.
   var rows = $$("[data-row]", page);
@@ -364,6 +386,7 @@
     state.d = d;
     dbtns.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.d === d ? "true" : "false"); });
     apply();
+    saveFilters();
   }
 
   function setFiltersOpen(open) {
@@ -389,6 +412,7 @@
       b.setAttribute("aria-pressed", on ? "true" : "false");
       state.kinds[b.dataset.kind] = on;
       apply();
+      saveFilters();
     });
   });
   if (search) {
@@ -518,28 +542,30 @@
   };
   getCarry = function () { return { d: state.d, q: search ? search.value : "", kinds: state.kinds }; };
 
-  /* ---------- Start: restore filters carried over from the other language (or ?q=), then jump ---------- */
-  var carried = null;
+  /* ---------- Start: restore filters carried over from the other language, or the ones saved last visit
+     (plus ?q=), then jump ---------- */
+  var carried = null, saved = null;
   try {
     carried = JSON.parse(window.sessionStorage.getItem("ccarf-carry") || "null");
     window.sessionStorage.removeItem("ccarf-carry");
   } catch (e) { carried = null; }
+  try { saved = JSON.parse(store.get(filterKey) || "null"); } catch (e) { saved = null; }
+  var restore = carried || saved || {};
+  kindBtns.forEach(function (b) {
+    if (restore.kinds && b.dataset.kind in restore.kinds) {
+      var on = restore.kinds[b.dataset.kind] !== false;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      state.kinds[b.dataset.kind] = on;
+    }
+  });
   if (carried) {
     if (search && typeof carried.q === "string") search.value = carried.q;
-    kindBtns.forEach(function (b) {
-      if (carried.kinds && b.dataset.kind in carried.kinds) {
-        var on = carried.kinds[b.dataset.kind] !== false;
-        b.setAttribute("aria-pressed", on ? "true" : "false");
-        state.kinds[b.dataset.kind] = on;
-      }
-    });
-    setDomain(/^(all|[1-5])$/.test(carried.d) ? carried.d : "all");
   } else {
     var q = null;
     try { q = new URLSearchParams(location.search).get("q"); } catch (e) { q = null; }
     if (search && q) search.value = q;
-    apply();
   }
+  setDomain(/^(all|[1-5])$/.test(restore.d) ? restore.d : "all");
   if (search && search.value) keepQuery();
   if (location.hash) { reveal(location.hash, true); }
   if (search && session.take("ccarf-focus-q") === "1") search.focus({ preventScroll: true });

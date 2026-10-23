@@ -84,8 +84,9 @@ const P = {
     cheatDesc: "Five one-page CCAR-F cheat tables, one per exam domain, with summaries, decision tables, comparison tables, and key facts and terms.",
     cheatPageTitle: (d) => `Cheat Table ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam), with a summary of every task statement.`,
-    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page",
-    compareH: "Comparison tables", compareJump: "Comparisons",
+    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", trapsOf: (c) => `Traps for ${c}`,
+    compareH: "Comparison tables", compareJump: "Comparisons", cardsH: "Key points by task",
+    nTables: (n) => `${n} tables`, nRows: (n) => `${n} rows`,
     factsH: "Key facts & terms", factsJump: "Facts & terms", factsCol: "Key facts", termsCol: "Terms",
     factsLead: "The exact names, values and definitions behind each task statement, for when you want more detail. The switch remembers your choice, and the translate button on each box switches it to Arabic.",
     ftCount: (f, t) => `${f} facts · ${t} terms`, ftShow: "Show",
@@ -165,8 +166,9 @@ const P = {
     cheatDesc: "5 جداول مراجعة لامتحان CCAR-F، جدول لكل مجال، ومعاهم ملخصات وجداول قرارات وجداول مقارنة ومعلومات ومصطلحات مهمة.",
     cheatPageTitle: (d) => `جدول المراجعة ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان)، ومعاه ملخص لكل مهمة.`,
-    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي",
-    compareH: "جداول المقارنة", compareJump: "المقارنات",
+    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", trapsOf: (c) => `مطبات ${c}`,
+    compareH: "جداول المقارنة", compareJump: "المقارنات", cardsH: "أهم النقط لكل مهمة",
+    nTables: (n) => `${n} جداول`, nRows: (n) => `${n} صف`,
     factsH: "معلومات ومصطلحات مهمة", factsJump: "المعلومات والمصطلحات", factsCol: "معلومات مهمة", termsCol: "مصطلحات",
     factsLead: "الأسامي والأرقام والتعريفات بالظبط لكل مهمة، لما تحب تعرف تفاصيل أكتر. الزرار بيفتكر اختيارك، وزرار الترجمة اللي في كل مربع بيعرضه بالإنجليزي.",
     ftCount: (f, t) => `${f} معلومة · ${t} مصطلح`, ftShow: "اعرض",
@@ -315,9 +317,12 @@ function site(lang, data, altData, SHEETS) {
 </dialog>`;
   // Summary buttons open one shared dialog; data-sum is "d<n>" (whole domain) or a task code such as "5.1".
   const sumBtn = (key, label = S.viewSummary) => `<button type="button" class="sum-btn" data-sum="${key}">${icon("book")}<span>${label}</span></button>`;
-  const domainHead = (d, what) =>
-    `<header class="dom-head"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2><span class="muted">${S.pctExam(d.weight)} · ${what}</span>${sumBtn(`d${d.n}`)}</header>`;
-  const taskHead = (l) => `<div class="task-head"><span class="code">${esc(l.code)}</span><h3>${md(l.task)}</h3>${sumBtn(l.code)}</div>`;
+  // extra: links shown beside the summary button (the traps page links each heading to its cheat table).
+  const domainHead = (d, what, extra = "") =>
+    `<header class="dom-head"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2><span class="muted">${S.pctExam(d.weight)} · ${what}</span><div class="head-acts">${sumBtn(`d${d.n}`)}${extra}</div></header>`;
+  const taskHead = (l, extra = "") => `<div class="task-head"><span class="code">${esc(l.code)}</span><h3>${md(l.task)}</h3><div class="head-acts">${sumBtn(l.code)}${extra}</div></div>`;
+  const headLink = (href, ic, label) => `<a class="sum-btn" href="${href}">${icon(ic)}<span>${label}</span></a>`;
+  const hasCard = (code) => SHEETS[code.split(".")[0]].cards.some((c) => c.includes(`id="c-${code.replace(".", "-")}"`));
   // Summary text: paragraphs split on blank lines; **bold** marks a key term. Bold markers are swapped for a
   // placeholder outside `code` first, so globs like `src/**/*.ts` stay intact and md() leaves the markers alone.
   const paras = (s) =>
@@ -346,9 +351,10 @@ function site(lang, data, altData, SHEETS) {
     );
   // prefix: the anchor prefix of the sections the domain summary links to ("n" notes, "t" traps, "c" cheat cards).
   // A cheat table page passes its one domain; "#summary" in its URL opens that domain's summary on load.
-  const sumDialog = (prefix, list = data) => `
+  // linkPage: the page those sections live on when it isn't this one ("{n}" becomes the domain number).
+  const sumDialog = (prefix, list = data, linkPage = "") => `
 <script type="application/json" id="sum-data">${JSON.stringify(sumData(list)).replace(/</g, "\\u003c")}</script>
-<dialog class="sum-dialog" id="sum-dialog" aria-labelledby="sum-title" data-prefix="${prefix}" data-all="${esc(S.sumAll)}" data-alt-all="${esc(A.sumAll)}"${list.length === 1 ? ` data-default="d${list[0].n}"` : ""} ${trxAttrs}>
+<dialog class="sum-dialog" id="sum-dialog" aria-labelledby="sum-title" data-prefix="${prefix}"${linkPage ? ` data-link-page="${linkPage}"` : ""} data-all="${esc(S.sumAll)}" data-alt-all="${esc(A.sumAll)}"${list.length === 1 ? ` data-default="d${list[0].n}"` : ""} ${trxAttrs}>
   <div class="sum-inner">
     <div class="sum-head">
       <div class="sum-titles"><span class="Label" id="sum-label"></span><h2 id="sum-title"></h2></div>
@@ -408,7 +414,7 @@ ${tasks}
     active: "notes",
     body: `
 <div class="container">
-  <div class="layout" data-filter-page ${trxAttrs}>
+  <div class="layout" data-filter-page data-store="notes" ${trxAttrs}>
     ${sidebar({ prefix: "n", placeholder: S.notesSearch, controls: kindControls })}
     <div style="min-width:0">
       <div class="pagehead lead-only"><h1>${S.notesTitle}</h1><p>${S.notesLead}</p><div class="qchips"><span>${S.tryH}:</span>${tryChips}</div>${shortSwitch("short-switch")}</div>
@@ -436,15 +442,16 @@ ${tasks}
           const tips = (l.exam_tips || []).length
             ? `<div class="flash tips"><div class="flash-title">${icon("bulb", "oc")}${S.tipsH}</div><ul>${l.exam_tips.map((t) => `<li data-row data-d="${d.n}" data-kind="tip">${md(t)}</li>`).join("")}</ul></div>`
             : "";
+          const cheat = hasCard(l.code) ? headLink(`cheat-table-${d.n}.html#${id("c", l.code)}`, "table", S.linkCheat) : "";
           return `<section class="task" id="${id("t", l.code)}">
-  ${taskHead(l)}
+  ${taskHead(l, cheat)}
   <div class="Box"><div class="tscroll"><table class="gh stack traps"><thead><tr>${S.trapsTh.map((h) => `<th>${h}</th>`).join("")}${trxTh}</tr></thead><tbody>${r}</tbody></table></div></div>
   ${tips}
 </section>`;
         })
         .join("\n");
       return `<section class="domain" id="d${d.n}" data-d="${d.n}" style="--c:${d.color}">
-${domainHead(d, S.nTraps(stats(d).traps))}
+${domainHead(d, S.nTraps(stats(d).traps), headLink(`cheat-table-${d.n}.html`, "table", S.linkCheat))}
 ${tasks}
 </section>`;
     })
@@ -455,7 +462,7 @@ ${tasks}
     active: "traps",
     body: `
 <div class="container">
-  <div class="layout" data-filter-page ${trxAttrs}>
+  <div class="layout" data-filter-page data-store="traps" ${trxAttrs}>
     ${sidebar({ prefix: "t", placeholder: S.trapsSearch, controls: `<label class="toggle"><input type="checkbox" data-quiz-toggle> ${S.quiz}</label>` })}
     <div style="min-width:0">
       <div class="pagehead lead-only"><h1>${S.trapsTitle}</h1><p>${S.trapsLead}</p><label class="short-switch"><input type="checkbox" class="switch-input" data-quiz-toggle> <span>${S.quiz}</span></label></div>
@@ -474,24 +481,28 @@ ${tasks}
     description: S.cheatDesc,
     active: "cheat",
     body: `
-<div class="container">
+<div class="container" data-jump>
   <div class="pagehead"><h1>${S.cheatTitle}</h1><p>${S.cheatLead}</p></div>
+  <nav class="jumpbar" aria-label="${esc(S.domainsH)}"><div class="jumpbar-in">${data
+    .map((d) => `<a class="jump-dom" href="#d${d.n}" style="--c:${d.color}"><span class="dot"></span>D${d.n} ${esc(d.short)}</a>`)
+    .join("")}</div></nav>
   <div class="cs-index">${data
     .map((d) => {
       const s = stats(d);
-      return `<div class="Box cs-thumb" style="--c:${d.color}">
+      return `<div class="Box cs-thumb" id="d${d.n}" style="--c:${d.color}">
   <a class="cs-thumb-main" href="cheat-table-${d.n}.html">
     <div class="Box-header"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2></div>
     <div class="Box-body"><ol>${d.lessons.map((l) => `<li><b>${esc(l.code)}</b><span>${md(l.task)}</span></li>`).join("")}</ol></div>
   </a>
   <div class="cs-thumb-foot">
     <a class="btn btn-sm" href="cheat-table-${d.n}.html">${icon("table")}${S.openTable}</a>
-    <a class="btn btn-sm" href="cheat-table-${d.n}.html#summary">${icon("book")}${S.sumDomain}</a>
+    <a class="btn btn-sm" href="cheat-table-${d.n}.html#summary" data-sum="d${d.n}">${icon("book")}${S.sumDomain}</a>
     <span class="stats"><span class="Counter">${S.cFacts(s.facts)}</span><span class="Counter">${S.cTerms(s.terms)}</span></span>
   </div>
 </div>`;
     })
     .join("")}</div>
+  ${sumDialog("c", data, "cheat-table-{n}.html")}
 </div>`,
   });
   // A heading that carries both languages; the translate button of its box swaps them.
@@ -509,52 +520,69 @@ ${tasks}
 </section>`;
   const sheetNav = (d) =>
     data.map((o) => `<a class="Label" style="--c:${o.color}" href="cheat-table-${o.n}.html"${o.n === d.n ? ' aria-current="page"' : ""}>${S.domainLabel(o.n)}</a>`).join("");
+  // A section that folds away behind a switch. site.js remembers each one's state (by key) across pages and visits;
+  // `open` is the default: the summary and the decision table start open, everything else closed.
+  const fold = ({ key, title, meta = "", open = false, attrs = "" }, body) => `<details class="section fold" id="${key}" data-fold="${key}"${open ? " open" : ""}${attrs}>
+  <summary><h2>${title}</h2>${meta ? `<span class="ft-count">${meta}</span>` : ""}<span class="ft-switch"><span class="switch-vis" aria-hidden="true"></span>${S.ftShow}</span></summary>
+  ${body}
+</details>`;
   data.forEach((d, di) => {
     const sh = SHEETS[d.n];
+    const ad = altData[di];
     const cards = sh.cards.join("\n");
-    const facts = d.lessons.map((l, li) => ftBlock(l, altData[di].lessons[li])).join("\n");
-    // The jump bar stays pinned under the header: the domain summary, each task card, facts & terms, comparisons.
-    const jumpTasks = d.lessons
-      .filter((l) => cards.includes(`id="c-${l.code.replace(".", "-")}"`))
-      .map((l) => `<a href="#c-${l.code.replace(".", "-")}" title="${esc(l.task.replace(/`/g, ""))}">${esc(l.code)}</a>`)
-      .join("");
+    const cardId = (l) => `c-${l.code.replace(".", "-")}`;
+    const carded = d.lessons.filter((l) => cards.includes(`id="${cardId(l)}"`));
+    const facts = d.lessons.map((l, li) => ftBlock(l, ad.lessons[li])).join("\n");
+    // The jump bar stays pinned under the header, in page order: the decision table, each task card,
+    // comparisons, facts & terms. The Summary button opens the summary dialog.
+    const jumpTasks = carded.map((l) => `<a href="#${cardId(l)}" title="${esc(l.task.replace(/`/g, ""))}">${esc(l.code)}</a>`).join("");
     const compare = (d.comparisons || [])
       .map(
         (c) => `<div><h3>${md(c.title)}</h3><div class="Box"><div class="tscroll"><table class="gh compare"><thead><tr>${c.columns.map((h) => `<th>${md(h)}</th>`).join("")}</tr></thead><tbody>${c.rows
-          .map((r) => `<tr>${r.map((cell) => `<td>${md(cell)}</td>`).join("")}</tr>`)
+          .map((r) => `<tr>${r.map((cell, i) => `<td data-label="${esc(c.columns[i].replace(/`/g, ""))}">${md(cell)}</td>`).join("")}</tr>`)
           .join("")}</tbody></table></div></div></div>`
       )
       .join("");
     const decide = (sh.decide || []).length
-      ? `<section class="section" id="decide"><h2>${S.decideH}</h2><p class="section-lead">${S.decideLead}</p>
+      ? fold({ key: "decide", title: S.decideH, meta: S.nRows(sh.decide.length), open: true }, `<p class="section-lead">${S.decideLead}</p>
   <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th></tr></thead><tbody>${sh.decide
     .map(([q, a]) => `<tr><td class="q">${md(q)}</td><td class="a">${md(a)}</td></tr>`)
-    .join("")}</tbody></table></div></div></section>`
+    .join("")}</tbody></table></div></div>`)
       : "";
-    // Facts and terms are extra detail: the last section, closed until its switch is turned on (site.js remembers it).
+    // The domain summary, read on the page in either language (the box's translate button swaps them).
+    const sumText = (D, L) =>
+      `${D.intro ? `<p class="sum-intro">${md(D.intro)}</p>` : ""}${D.lessons
+        .map((l, li) => {
+          const head = `<span class="sum-code">${esc(l.code)}</span> ${md(l.task)}`;
+          const has = carded.includes(d.lessons[li]);
+          return `<section class="sum-item"><h3>${has ? `<a href="#${cardId(l)}">${head}</a>` : head}</h3>${paras(l.summary)}</section>`;
+        })
+        .join("")}`;
+    const summary = fold(
+      { key: "sum", title: S.sumDomain, meta: S.nTasks(d.lessons.length), open: true, attrs: ` ${trxAttrs}` },
+      `<div class="Box sum-inline" data-trx-scope><button type="button" class="trx-btn" data-trx aria-pressed="false">${S.trxOff}</button>${dual(sumText(d), sumText(ad))}</div>`
+    );
     const s = stats(d);
-    const factsSection = `<details class="section ft-section" id="facts" ${trxAttrs}>
-  <summary class="ft-summary"><h2>${S.factsH}</h2><span class="ft-count">${S.ftCount(s.facts, s.terms)}</span><span class="ft-switch"><span class="switch-vis" aria-hidden="true"></span>${S.ftShow}</span></summary>
-  <p class="section-lead">${S.factsLead}</p>
-  <div class="ft-list">${facts}</div>
-</details>`;
     write(`cheat-table-${d.n}.html`, {
       title: S.cheatPageTitle(d),
       description: S.cheatPageDesc(d),
       active: "cheat",
       body: `
-<div class="container" style="--c:${d.color}" data-sheet>
+<div class="container" style="--c:${d.color}" data-sheet data-jump>
   <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><p>${esc(sh.sub)}</p>
     <div class="sheet-nav">${sheetNav(d)}</div>
   </header>
   <nav class="jumpbar" aria-label="${esc(S.jumpLabel)}"><div class="jumpbar-in">
     ${sumBtn(`d${d.n}`, S.sumDomain).replace('class="sum-btn"', 'class="sum-btn jump-sum"')}
-    ${jumpTasks}${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
+    ${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${jumpTasks}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
+    <a class="jump-out" href="traps.html#d${d.n}">${icon("alert")}${S.linkTraps}</a>
   </div></nav>
-  <div class="cs-grid">${cards}</div>
+  ${summary}
   ${decide}
-  ${compare ? `<section class="section" id="compare"><h2>${S.compareH}</h2><div class="compare-list">${compare}</div></section>` : ""}
-  ${factsSection}
+  ${fold({ key: "cards", title: S.cardsH, meta: S.nTasks(carded.length) }, `<div class="cs-grid">${cards}</div>`)}
+  ${compare ? fold({ key: "compare", title: S.compareH, meta: S.nTables(d.comparisons.length) }, `<div class="compare-list">${compare}</div>`) : ""}
+  ${fold({ key: "facts", title: S.factsH, meta: S.ftCount(s.facts, s.terms), attrs: ` ${trxAttrs}` }, `<p class="section-lead">${S.factsLead}</p>
+  <div class="ft-list">${facts}</div>`)}
   <div class="sheet-foot">
     <div class="sheet-nav">${sheetNav(d)}</div>
     <div class="links"><a href="notes.html#d${d.n}">${S.domNotes(d.n)}</a><a href="traps.html#d${d.n}">${S.domTraps(d.n)}</a></div>
