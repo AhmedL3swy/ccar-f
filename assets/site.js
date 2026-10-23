@@ -236,8 +236,8 @@
     };
     window.addEventListener("scroll", function () { if (!ticking) { ticking = true; window.requestAnimationFrame(follow); } }, { passive: true });
 
-    // Sections fold away behind a switch (<details data-fold>). The summary and the decision table start open,
-    // the rest closed; each switch is remembered across pages and visits. Following a link into a closed section
+    // Comparisons and facts & terms fold away behind a switch (<details data-fold>), closed until it is turned on;
+    // each switch is remembered across pages and visits. Following a link into a closed section
     // (jump bar, summary, language switch) opens it without changing the remembered choice.
     var folds = $$("details[data-fold]", sheet), linkOpened = null;
     var foldKey = function (f) { return "ccarf-fold-" + f.getAttribute("data-fold"); };
@@ -269,6 +269,116 @@
       var i = inView();
       return i >= 0 ? jumpLinks[i].getAttribute("href").slice(1) : "";
     };
+  }
+
+  /* ---------- Bookmarks ----------
+     Rows with data-bm-id (decision tables, traps, notes) have a bookmark button. Saving keeps a copy of the
+     row's cells in localStorage, newest first, so the bookmarks page can list them without loading other pages. */
+  var BM_KEY = "ccarf-bookmarks";
+  var pageLang = root.getAttribute("lang") || "en";
+  var bmList = function () {
+    try { var v = JSON.parse(store.get(BM_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  };
+  var bmSave = function (list) { store.set(BM_KEY, JSON.stringify(list)); bmMarks(); };
+  var bmMarks = function () {
+    var list = bmList(), ids = {};
+    list.forEach(function (b) { ids[b.id] = true; });
+    $$("[data-bm-id]").forEach(function (r) {
+      var b = $("[data-bm]", r);
+      if (b) b.setAttribute("aria-pressed", ids[r.getAttribute("data-bm-id")] ? "true" : "false");
+    });
+    $$("[data-bm-count]").forEach(function (c) { c.textContent = list.length; c.hidden = !list.length; });
+  };
+  // The cells as first shown (the page's own language), without buttons.
+  var bmCells = function (row) {
+    return $$("td", row).filter(function (td) { return !td.classList.contains("trx"); }).map(function (td) {
+      var c = td.cloneNode(true);
+      $$("button", c).forEach(function (n) { n.parentNode.removeChild(n); });
+      $$(".tx", c).forEach(function (t) { t.hidden = t.hasAttribute("lang"); });
+      return c.innerHTML;
+    });
+  };
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-bm]"), row = b && b.closest("[data-bm-id]");
+    if (!row) return;
+    var id = row.getAttribute("data-bm-id"), list = bmList();
+    var rest = list.filter(function (x) { return x.id !== id; });
+    if (rest.length === list.length) {
+      rest.unshift({
+        id: id, kind: row.getAttribute("data-bm-kind"), href: row.getAttribute("data-bm-href"),
+        ctx: row.getAttribute("data-bm-ctx"), ctxAlt: row.getAttribute("data-bm-ctx-alt"), cells: bmCells(row), lang: pageLang, at: Date.now()
+      });
+    }
+    bmSave(rest);
+  });
+  window.addEventListener("storage", function (e) { if (e.key === BM_KEY) { bmMarks(); if (bmRender) bmRender(); } });
+  var bmRender = null;
+  bmMarks();
+
+  // The bookmarks page: a list filtered by group (all, traps, decisions, notes & facts); the choice is remembered.
+  var bmPage = $("[data-bm-page]");
+  if (bmPage) {
+    var bmText = {};
+    try { bmText = JSON.parse(($("#bm-text") || {}).textContent || "{}"); } catch (e) { bmText = {}; }
+    var bmListEl = $("[data-bm-list]", bmPage), bmEmpty = $("[data-bm-empty]", bmPage), bmClear = $("[data-bm-clear]", bmPage);
+    var bmGroupBtns = $$("[data-bm-group]", bmPage);
+    var groupOf = function (kind) { return kind === "trap" || kind === "decide" ? kind : "note"; };
+    var bmGroup = store.get("ccarf-bm-group") || "all";
+    var labelsFor = function (kind) {
+      if (kind === "trap") return bmText.trapsTh || [];
+      if (kind === "decide") return bmText.decideTh || [];
+      return [];
+    };
+    var esc = function (s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; };
+    // A bookmark saved on the other language's page: show this page's language first, like the rows here.
+    var swapLang = function (el, savedLang) {
+      if (savedLang === pageLang) return;
+      $$(".tx", el).forEach(function (t) {
+        if (t.hasAttribute("lang")) { t.removeAttribute("lang"); t.removeAttribute("dir"); t.hidden = false; }
+        else { t.setAttribute("lang", savedLang); t.setAttribute("dir", savedLang === "ar" ? "rtl" : "ltr"); t.hidden = true; }
+      });
+    };
+    bmRender = function () {
+      var list = bmList(), counts = { all: list.length, trap: 0, decide: 0, note: 0 };
+      list.forEach(function (b) { counts[groupOf(b.kind)]++; });
+      if (!(bmGroup in counts) || (bmGroup !== "all" && !counts[bmGroup])) bmGroup = "all";
+      bmGroupBtns.forEach(function (g) {
+        var k = g.getAttribute("data-bm-group");
+        g.setAttribute("aria-pressed", k === bmGroup ? "true" : "false");
+        g.hidden = k !== "all" && !counts[k];
+        $("[data-bm-n]", g).textContent = counts[k];
+      });
+      var shown = list.filter(function (b) { return bmGroup === "all" || groupOf(b.kind) === bmGroup; });
+      var trxOff = bmPage.getAttribute("data-trx-off"), trxTitle = bmPage.getAttribute("data-trx-title");
+      bmListEl.innerHTML = shown.map(function (b) {
+        var labels = labelsFor(b.kind), dual = (b.cells || []).some(function (c) { return c.indexOf('class="tx"') !== -1; });
+        return '<article class="Box bm-item bm-' + esc(b.kind) + '" data-trx-scope data-id="' + esc(b.id) + '">' +
+          '<header class="bm-h"><span class="kind bm-kind">' + esc((bmText.kinds || {})[b.kind] || b.kind) + "</span>" +
+          '<a href="' + esc(b.href) + '">' + esc(b.lang !== pageLang && b.ctxAlt ? b.ctxAlt : b.ctx) + "</a>" +
+          '<div class="row-acts">' + (dual ? '<button type="button" class="trx-btn" data-trx aria-pressed="false" title="' + esc(trxTitle) + '" aria-label="' + esc(trxTitle) + '">' + esc(trxOff) + "</button>" : "") +
+          '<button type="button" class="bm-btn" data-bm-del aria-pressed="true" title="' + esc(bmText.remove) + '" aria-label="' + esc(bmText.remove) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button></div></header>' +
+          '<div class="bm-body">' + (b.cells || []).map(function (c, i) {
+            return '<div class="bm-cell bm-c' + i + '">' + (labels[i] && i ? '<div class="bm-lbl">' + esc(labels[i]) + "</div>" : "") + c + "</div>";
+          }).join("") + "</div></article>";
+      }).join("");
+      shown.forEach(function (b, i) { swapLang(bmListEl.children[i], b.lang); });
+      bmEmpty.hidden = list.length > 0;
+      bmClear.hidden = !list.length;
+    };
+    bmGroupBtns.forEach(function (g) {
+      g.addEventListener("click", function () { bmGroup = g.getAttribute("data-bm-group"); store.set("ccarf-bm-group", bmGroup); bmRender(); });
+    });
+    bmListEl.addEventListener("click", function (e) {
+      var del = e.target.closest("[data-bm-del]");
+      if (!del) return;
+      var id = del.closest("[data-id]").getAttribute("data-id");
+      bmSave(bmList().filter(function (x) { return x.id !== id; }));
+      bmRender();
+    });
+    bmClear.addEventListener("click", function () {
+      if (window.confirm(bmText.confirm || "")) { bmSave([]); bmRender(); }
+    });
+    bmRender();
   }
 
   /* ---------- Notes / Traps filtering ---------- */
@@ -517,7 +627,7 @@
     };
     quizToggles.forEach(function (t) { t.addEventListener("change", function () { setQuiz(t.checked); }); });
     page.addEventListener("click", function (e) {
-      if (!page.classList.contains("quiz") || e.target.closest("[data-trx]")) return;
+      if (!page.classList.contains("quiz") || e.target.closest("[data-trx], [data-bm]")) return;
       var row = e.target.closest("table.traps tbody tr");
       if (row) revealAnswer(row, e.target.closest("td.whycol, td.fixcol"));
     });

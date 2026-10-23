@@ -85,8 +85,7 @@ const P = {
     cheatPageTitle: (d) => `Cheat Table ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam), with a summary of every task statement.`,
     openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", trapsOf: (c) => `Traps for ${c}`,
-    compareH: "Comparison tables", compareJump: "Comparisons", cardsH: "Key points by task",
-    nTables: (n) => `${n} tables`, nRows: (n) => `${n} rows`,
+    compareH: "Comparison tables", compareJump: "Comparisons", nTables: (n) => `${n} tables`,
     factsH: "Key facts & terms", factsJump: "Facts & terms", factsCol: "Key facts", termsCol: "Terms",
     factsLead: "The exact names, values and definitions behind each task statement, for when you want more detail. The switch remembers your choice, and the translate button on each box switches it to Arabic.",
     ftCount: (f, t) => `${f} facts · ${t} terms`, ftShow: "Show",
@@ -116,6 +115,12 @@ const P = {
     <p>Using this guide does not guarantee a passing score. Treat it as a review aid alongside the official documentation and hands-on practice.</p>
     <h2>Use</h2>
     <p>This guide is for our study group's own use. Please don't sell it or present it as official material. If you spot a mistake, tell the maintainer so it can be fixed for everyone.</p>`,
+    bmBtn: "Bookmark", bmTitle: "Bookmarks", bmRemove: "Remove", bmClear: "Clear all", bmConfirm: "Remove all your bookmarks?",
+    bmDesc: "Your saved decision table rows, exam traps, notes and facts for the CCAR-F exam, kept in this browser.",
+    bmLead: `Decision table rows, exam traps, notes and facts you saved, in one place. Tap the ${icon("bookmark", "bm-ic")} button on any row to add it here. Bookmarks are kept in this browser only.`,
+    bmEmpty: `Nothing saved yet. Tap the ${icon("bookmark", "bm-ic")} button on a row in a <a href="cheat-tables.html">decision table</a>, the <a href="traps.html">exam traps</a> or the <a href="notes.html">notes</a>, and it shows up here.`,
+    bmGroups: { all: "All", trap: "Traps", decide: "Decisions", note: "Notes & facts" },
+    bmKinds: { trap: "Trap", decide: "Decision", concept: "Key concept", note: "Note", fact: "Fact", term: "Term" },
     nfTitle: "Page not found",
     nfBody: `The page you asked for doesn't exist. Go to the <a href="index.html">home page</a>, the <a href="cheat-tables.html">cheat tables</a>, the <a href="traps.html">exam traps</a> or <a href="notes.html">search the notes</a>.`,
   },
@@ -167,8 +172,7 @@ const P = {
     cheatPageTitle: (d) => `جدول المراجعة ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان)، ومعاه ملخص لكل مهمة.`,
     openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", trapsOf: (c) => `مطبات ${c}`,
-    compareH: "جداول المقارنة", compareJump: "المقارنات", cardsH: "أهم النقط لكل مهمة",
-    nTables: (n) => `${n} جداول`, nRows: (n) => `${n} صف`,
+    compareH: "جداول المقارنة", compareJump: "المقارنات", nTables: (n) => `${n} جداول`,
     factsH: "معلومات ومصطلحات مهمة", factsJump: "المعلومات والمصطلحات", factsCol: "معلومات مهمة", termsCol: "مصطلحات",
     factsLead: "الأسامي والأرقام والتعريفات بالظبط لكل مهمة، لما تحب تعرف تفاصيل أكتر. الزرار بيفتكر اختيارك، وزرار الترجمة اللي في كل مربع بيعرضه بالإنجليزي.",
     ftCount: (f, t) => `${f} معلومة · ${t} مصطلح`, ftShow: "اعرض",
@@ -198,6 +202,12 @@ const P = {
     <p>إنك تستخدم الدليل ده مش ضمان إنك تنجح. اعتبره أداة مراجعة جنب التوثيق الرسمي والتطبيق العملي.</p>
     <h2>الاستخدام</h2>
     <p>الدليل ده لجروب المذاكرة بتاعنا. متبيعهوش، ومتقدموش على إنه محتوى رسمي. ولو لقيت غلطة، قول للي ماسك الموقع عشان تتصلح للكل.</p>`,
+    bmBtn: "احفظ", bmTitle: "المحفوظات", bmRemove: "شيل", bmClear: "امسح الكل", bmConfirm: "تمسح كل المحفوظات؟",
+    bmDesc: "الصفوف اللي حفظتها من جداول القرارات والمطبات والملاحظات والمعلومات لامتحان CCAR-F، متخزنة في المتصفح ده.",
+    bmLead: `صفوف جداول القرارات والمطبات والملاحظات والمعلومات اللي حفظتها، في مكان واحد. دوس على زرار ${icon("bookmark", "bm-ic")} جنب أي صف عشان تضيفه هنا. المحفوظات بتتخزن في المتصفح ده بس.`,
+    bmEmpty: `لسه ماحفظتش حاجة. دوس على زرار ${icon("bookmark", "bm-ic")} جنب أي صف في <a href="cheat-tables.html">جدول القرارات</a> أو <a href="traps.html">المطبات</a> أو <a href="notes.html">الملاحظات</a>، وهتلاقيه هنا.`,
+    bmGroups: { all: "الكل", trap: "المطبات", decide: "القرارات", note: "الملاحظات والمعلومات" },
+    bmKinds: { trap: "مطب", decide: "قرار", concept: "الفكرة الأساسية", note: "ملاحظة", fact: "معلومة", term: "مصطلح" },
     nfTitle: "الصفحة مش موجودة",
     nfBody: `الصفحة اللي بتدوّر عليها مش موجودة. روح <a href="index.html">للرئيسية</a> أو <a href="cheat-tables.html">لجداول المراجعة</a> أو <a href="traps.html">لمطبات الامتحان</a>، أو <a href="notes.html">دوّر في الملاحظات</a>.`,
   },
@@ -225,7 +235,13 @@ function site(lang, data, altData, SHEETS) {
   const dual = (html, altHtml) =>
     `<div class="tx">${html}</div><div class="tx" lang="${altLang}" dir="${altLang === "ar" ? "rtl" : "ltr"}" hidden>${altHtml}</div>`;
   // Labels and title live once on the page container (data-trx-*); site.js applies them.
-  const trxCell = `<td class="trx"><button type="button" class="trx-btn" data-trx aria-pressed="false">${S.trxOff}</button></td>`;
+  // A row that can be bookmarked carries data-bm-* (a stable id, its kind, a link back and a one-line context);
+  // site.js saves a copy of its cells to localStorage, which the bookmarks page lists.
+  const bmBtn = `<button type="button" class="bm-btn" data-bm aria-pressed="false" title="${esc(S.bmBtn)}" aria-label="${esc(S.bmBtn)}">${icon("bookmark")}</button>`;
+  const bmAttrs = (bmId, kind, href, ctx, altCtx) =>
+    `data-bm-id="${bmId}" data-bm-kind="${kind}" data-bm-href="${href}" data-bm-ctx="${esc(ctx.replace(/`/g, ""))}" data-bm-ctx-alt="${esc(altCtx.replace(/`/g, ""))}"`;
+  const altTask = (code) => altData.flatMap((x) => x.lessons).find((x) => x.code === code).task;
+  const trxCell = `<td class="trx"><div class="row-acts">${bmBtn}<button type="button" class="trx-btn" data-trx aria-pressed="false">${S.trxOff}</button></div></td>`;
   const trxAttrs = `data-trx-on="${S.trxOn}" data-trx-off="${S.trxOff}" data-trx-title="${esc(S.trxTitle)}"`;
   const trxTh = `<th class="trx"><span class="sr-only">${S.trxTh}</span></th>`;
   const dir = outDir(lang);
@@ -372,8 +388,8 @@ function site(lang, data, altData, SHEETS) {
     short
       ? `<div class="v-full">${md(full)}</div><div class="v-short"><span class="short-tag">${K.inShort}</span>${md(short)}</div><button type="button" class="more-btn" data-more><span class="m">${K.more}</span><span class="l">${K.less}</span></button>`
       : md(full);
-  const nrow = (d, kind, [topic, text, short], [aTopic, aText, aShort]) =>
-    `<tr data-row data-d="${d.n}" data-kind="${kind}"><td class="topic">${dual(kindTag(S, kind) + md(topic), kindTag(A, kind) + md(aTopic))}</td><td>${dual(noteBlock(S, text, short), noteBlock(A, aText, aShort))}</td>${trxCell}</tr>`;
+  const nrow = (d, l, kind, i, [topic, text, short], [aTopic, aText, aShort]) =>
+    `<tr data-row data-d="${d.n}" data-kind="${kind}" ${bmAttrs(`${kind}:${l.code}${i < 0 ? "" : ":" + i}`, kind, `notes.html#${id("n", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="topic">${dual(kindTag(S, kind) + md(topic), kindTag(A, kind) + md(aTopic))}</td><td>${dual(noteBlock(S, text, short), noteBlock(A, aText, aShort))}</td>${trxCell}</tr>`;
   const shortSwitch = (cls) => `<label class="${cls}"><input type="checkbox" class="switch-input" data-short-toggle> <span>${S.shortOnly}</span></label>`;
   const notesDomains = data
     .map((d, di) => {
@@ -381,10 +397,10 @@ function site(lang, data, altData, SHEETS) {
         .map((l, li) => {
           const a = altData[di].lessons[li];
           const r = [
-            l.key_concept ? nrow(d, "concept", [l.key_concept.term, l.key_concept.definition, l.key_concept.short], [a.key_concept.term, a.key_concept.definition, a.key_concept.short]) : "",
-            ...l.notes.map((n, i) => nrow(d, "note", [n.topic, n.note, n.short], [a.notes[i].topic, a.notes[i].note, a.notes[i].short])),
-            ...(l.facts || []).map((f, i) => nrow(d, "fact", [f.item, f.detail], [a.facts[i].item, a.facts[i].detail])),
-            ...(l.terms || []).map((t, i) => nrow(d, "term", [t.term, t.def], [a.terms[i].term, a.terms[i].def])),
+            l.key_concept ? nrow(d, l, "concept", -1, [l.key_concept.term, l.key_concept.definition, l.key_concept.short], [a.key_concept.term, a.key_concept.definition, a.key_concept.short]) : "",
+            ...l.notes.map((n, i) => nrow(d, l, "note", i, [n.topic, n.note, n.short], [a.notes[i].topic, a.notes[i].note, a.notes[i].short])),
+            ...(l.facts || []).map((f, i) => nrow(d, l, "fact", i, [f.item, f.detail], [a.facts[i].item, a.facts[i].detail])),
+            ...(l.terms || []).map((t, i) => nrow(d, l, "term", i, [t.term, t.def], [a.terms[i].term, a.terms[i].def])),
           ].join("");
           return `<section class="task" id="${id("n", l.code)}">
   ${taskHead(l)}
@@ -436,7 +452,7 @@ ${tasks}
           const r = l.traps
             .map((t, i) => {
               const at = a.traps[i];
-              return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0"><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
+              return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0" ${bmAttrs(`trap:${l.code}:${i}`, "trap", `traps.html#${id("t", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
             })
             .join("");
           const tips = (l.exam_tips || []).length
@@ -476,6 +492,9 @@ ${tasks}
   });
 
   /* ----------------------------------------------------- Cheat tables */
+  // A task's traps, as a small pill with their count (cheat tables index and each task card).
+  const trapPill = (l) =>
+    `<a class="trap-pill" href="traps.html#${id("t", l.code)}" title="${esc(S.trapsOf(l.code))}" aria-label="${esc(S.trapsOf(l.code))}">${icon("alert")}<span>${l.traps.length}</span></a>`;
   write("cheat-tables.html", {
     title: S.cheatTitle,
     description: S.cheatDesc,
@@ -492,11 +511,14 @@ ${tasks}
       return `<div class="Box cs-thumb" id="d${d.n}" style="--c:${d.color}">
   <a class="cs-thumb-main" href="cheat-table-${d.n}.html">
     <div class="Box-header"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2></div>
-    <div class="Box-body"><ol>${d.lessons.map((l) => `<li><b>${esc(l.code)}</b><span>${md(l.task)}</span></li>`).join("")}</ol></div>
   </a>
+  <div class="Box-body"><ol>${d.lessons
+    .map((l) => `<li><a class="cs-task" href="cheat-table-${d.n}.html${hasCard(l.code) ? `#${id("c", l.code)}` : ""}"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a>${trapPill(l)}</li>`)
+    .join("")}</ol></div>
   <div class="cs-thumb-foot">
     <a class="btn btn-sm" href="cheat-table-${d.n}.html">${icon("table")}${S.openTable}</a>
     <a class="btn btn-sm" href="cheat-table-${d.n}.html#summary" data-sum="d${d.n}">${icon("book")}${S.sumDomain}</a>
+    <a class="btn btn-sm btn-traps" href="traps.html#d${d.n}">${icon("alert")}${S.cTraps(s.traps)}</a>
     <span class="stats"><span class="Counter">${S.cFacts(s.facts)}</span><span class="Counter">${S.cTerms(s.terms)}</span></span>
   </div>
 </div>`;
@@ -520,20 +542,26 @@ ${tasks}
 </section>`;
   const sheetNav = (d) =>
     data.map((o) => `<a class="Label" style="--c:${o.color}" href="cheat-table-${o.n}.html"${o.n === d.n ? ' aria-current="page"' : ""}>${S.domainLabel(o.n)}</a>`).join("");
-  // A section that folds away behind a switch. site.js remembers each one's state (by key) across pages and visits;
-  // `open` is the default: the summary and the decision table start open, everything else closed.
-  const fold = ({ key, title, meta = "", open = false, attrs = "" }, body) => `<details class="section fold" id="${key}" data-fold="${key}"${open ? " open" : ""}${attrs}>
+  // A section that folds away behind a switch, closed by default (comparisons, facts & terms). site.js remembers
+  // each one's state (by key) across pages and visits.
+  const fold = ({ key, title, meta = "", attrs = "" }, body) => `<details class="section fold" id="${key}" data-fold="${key}"${attrs}>
   <summary><h2>${title}</h2>${meta ? `<span class="ft-count">${meta}</span>` : ""}<span class="ft-switch"><span class="switch-vis" aria-hidden="true"></span>${S.ftShow}</span></summary>
   ${body}
 </details>`;
   data.forEach((d, di) => {
     const sh = SHEETS[d.n];
     const ad = altData[di];
-    const cards = sh.cards.join("\n");
+    // Each task card's summary button is followed by its traps pill.
+    const cards = sh.cards
+      .join("\n")
+      .replace(/(<button type="button" class="sum-mini" data-sum="(\d\.\d)"[^>]*>[\s\S]*?<\/button>)/g, (m, btn, code) => {
+        const l = d.lessons.find((x) => x.code === code);
+        return l ? btn + trapPill(l) : btn;
+      });
     const cardId = (l) => `c-${l.code.replace(".", "-")}`;
     const carded = d.lessons.filter((l) => cards.includes(`id="${cardId(l)}"`));
     const facts = d.lessons.map((l, li) => ftBlock(l, ad.lessons[li])).join("\n");
-    // The jump bar stays pinned under the header, in page order: the decision table, each task card,
+    // The jump bar stays pinned under the header, in page order: each task card, the decision table,
     // comparisons, facts & terms. The Summary button opens the summary dialog.
     const jumpTasks = carded.map((l) => `<a href="#${cardId(l)}" title="${esc(l.task.replace(/`/g, ""))}">${esc(l.code)}</a>`).join("");
     const compare = (d.comparisons || [])
@@ -544,24 +572,11 @@ ${tasks}
       )
       .join("");
     const decide = (sh.decide || []).length
-      ? fold({ key: "decide", title: S.decideH, meta: S.nRows(sh.decide.length), open: true }, `<p class="section-lead">${S.decideLead}</p>
-  <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th></tr></thead><tbody>${sh.decide
-    .map(([q, a]) => `<tr><td class="q">${md(q)}</td><td class="a">${md(a)}</td></tr>`)
-    .join("")}</tbody></table></div></div>`)
+      ? `<section class="section" id="decide"><h2>${S.decideH}</h2><p class="section-lead">${S.decideLead}</p>
+  <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th>${trxTh}</tr></thead><tbody>${sh.decide
+    .map(([q, a], i) => `<tr ${bmAttrs(`decide:${d.n}:${i}`, "decide", `cheat-table-${d.n}.html#decide`, `${S.domainLabel(d.n)} · ${S.decideH}`, `${A.domainLabel(d.n)} · ${A.decideH}`)}><td class="q">${md(q)}</td><td class="a">${md(a)}</td><td class="trx"><div class="row-acts">${bmBtn}</div></td></tr>`)
+    .join("")}</tbody></table></div></div></section>`
       : "";
-    // The domain summary, read on the page in either language (the box's translate button swaps them).
-    const sumText = (D, L) =>
-      `${D.intro ? `<p class="sum-intro">${md(D.intro)}</p>` : ""}${D.lessons
-        .map((l, li) => {
-          const head = `<span class="sum-code">${esc(l.code)}</span> ${md(l.task)}`;
-          const has = carded.includes(d.lessons[li]);
-          return `<section class="sum-item"><h3>${has ? `<a href="#${cardId(l)}">${head}</a>` : head}</h3>${paras(l.summary)}</section>`;
-        })
-        .join("")}`;
-    const summary = fold(
-      { key: "sum", title: S.sumDomain, meta: S.nTasks(d.lessons.length), open: true, attrs: ` ${trxAttrs}` },
-      `<div class="Box sum-inline" data-trx-scope><button type="button" class="trx-btn" data-trx aria-pressed="false">${S.trxOff}</button>${dual(sumText(d), sumText(ad))}</div>`
-    );
     const s = stats(d);
     write(`cheat-table-${d.n}.html`, {
       title: S.cheatPageTitle(d),
@@ -569,17 +584,16 @@ ${tasks}
       active: "cheat",
       body: `
 <div class="container" style="--c:${d.color}" data-sheet data-jump>
-  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><p>${esc(sh.sub)}</p>
+  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><a class="btn btn-sm btn-traps" href="traps.html#d${d.n}">${icon("alert")}${S.domTraps(d.n)}<span class="Counter">${s.traps}</span></a><p>${esc(sh.sub)}</p>
     <div class="sheet-nav">${sheetNav(d)}</div>
   </header>
   <nav class="jumpbar" aria-label="${esc(S.jumpLabel)}"><div class="jumpbar-in">
     ${sumBtn(`d${d.n}`, S.sumDomain).replace('class="sum-btn"', 'class="sum-btn jump-sum"')}
-    ${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${jumpTasks}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
+    ${jumpTasks}${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
     <a class="jump-out" href="traps.html#d${d.n}">${icon("alert")}${S.linkTraps}</a>
   </div></nav>
-  ${summary}
+  <div class="cs-grid">${cards}</div>
   ${decide}
-  ${fold({ key: "cards", title: S.cardsH, meta: S.nTasks(carded.length) }, `<div class="cs-grid">${cards}</div>`)}
   ${compare ? fold({ key: "compare", title: S.compareH, meta: S.nTables(d.comparisons.length) }, `<div class="compare-list">${compare}</div>`) : ""}
   ${fold({ key: "facts", title: S.factsH, meta: S.ftCount(s.facts, s.terms), attrs: ` ${trxAttrs}` }, `<p class="section-lead">${S.factsLead}</p>
   <div class="ft-list">${facts}</div>`)}
@@ -590,6 +604,30 @@ ${tasks}
   ${sumDialog("c", [d])}
 </div>`,
     });
+  });
+
+  /* -------------------------------------------------------- Bookmarks */
+  // site.js fills the list from localStorage; the labels it needs are in #bm-text.
+  const bmText = { kinds: S.bmKinds, remove: S.bmRemove, confirm: S.bmConfirm, trapsTh: S.trapsTh, decideTh: S.decideTh };
+  write("bookmarks.html", {
+    title: S.bmTitle,
+    description: S.bmDesc,
+    active: "saved",
+    body: `
+<div class="container">
+  <div class="pagehead"><h1>${S.bmTitle}</h1><p>${S.bmLead}</p></div>
+  <div class="bm-page" data-bm-page ${trxAttrs}>
+    <div class="bm-bar">
+      <div class="seg bm-filter" role="group">${Object.entries(S.bmGroups)
+        .map(([k, v]) => `<button type="button" data-bm-group="${k}" aria-pressed="${k === "all"}">${v} <span class="Counter" data-bm-n="${k}">0</span></button>`)
+        .join("")}</div>
+      <button type="button" class="btn btn-sm" data-bm-clear hidden>${icon("x")}${S.bmClear}</button>
+    </div>
+    <div class="bm-list" data-bm-list></div>
+    <p class="bm-empty" data-bm-empty>${S.bmEmpty}</p>
+  </div>
+  <script type="application/json" id="bm-text">${JSON.stringify(bmText).replace(/</g, "\\u003c")}</script>
+</div>`,
   });
 
   /* ------------------------------------------------------- Disclaimer */

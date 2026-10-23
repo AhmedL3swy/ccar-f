@@ -10,10 +10,10 @@ const col = (c) => C[c] || c;
 
 // A card is a bordered box; its number takes the sheet's domain colour (set on the grid).
 // Task cards get an anchor (#c-5-1, used by the page's jump bar), a button that opens that task's summary
-// and a link to that task's traps.
+// (build.mjs adds a link to that task's traps after it).
 const card = ({ n, title, sub, w = 4 }, ...kids) =>
   `<section class="Box cs-card${w === 4 ? "" : " w" + w}"${n ? ` id="c-${n.replace(".", "-")}"` : ""}>
-  <header class="cs-h"><span class="n">${n ? esc(n) : ""}</span><h2>${md(title)}</h2>${n ? `<button type="button" class="sum-mini" data-sum="${esc(n)}" title="Summary of ${esc(n)}" aria-label="Summary of ${esc(n)}">${icon("book")}</button><a class="sum-mini" href="traps.html#t-${n.replace(".", "-")}" title="Traps for ${esc(n)}" aria-label="Traps for ${esc(n)}">${icon("alert")}</a>` : ""}${sub ? `<p>${md(sub)}</p>` : ""}</header>
+  <header class="cs-h"><span class="n">${n ? esc(n) : ""}</span><h2>${md(title)}</h2>${n ? `<button type="button" class="sum-mini" data-sum="${esc(n)}" title="Summary of ${esc(n)}" aria-label="Summary of ${esc(n)}">${icon("book")}</button>` : ""}${sub ? `<p>${md(sub)}</p>` : ""}</header>
   <div class="cs-body">${kids.join("\n")}</div>
 </section>`;
 

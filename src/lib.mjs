@@ -30,8 +30,8 @@ export const DOMAINS = [
 // Interface text. Arabic is Egyptian colloquial on purpose; technical terms stay in English.
 export const STR = {
   en: {
-    nav: { home: "Home", notes: "Search", traps: "Exam Traps", cheat: "Cheat Tables", disclaimer: "Disclaimer" },
-    tabs: { home: "Home", cheat: "Cheat tables", traps: "Traps", notes: "Search" },
+    nav: { home: "Home", notes: "Search", traps: "Exam Traps", cheat: "Cheat Tables", saved: "Bookmarks", disclaimer: "Disclaimer" },
+    tabs: { home: "Home", cheat: "Cheat tables", traps: "Traps", notes: "Search", saved: "Saved" },
     tabsLabel: "Sections of the site",
     toTop: "Back to top",
     skip: "Skip to content",
@@ -42,8 +42,8 @@ export const STR = {
     footer2: `Not affiliated with or endorsed by Anthropic. Check the official documentation before relying on a detail. <a href="disclaimer.html">Read the disclaimer</a>.`,
   },
   ar: {
-    nav: { home: "الرئيسية", notes: "بحث", traps: "مطبات الامتحان", cheat: "جداول المراجعة", disclaimer: "تنويه" },
-    tabs: { home: "الرئيسية", cheat: "المراجعة", traps: "المطبات", notes: "بحث" },
+    nav: { home: "الرئيسية", notes: "بحث", traps: "مطبات الامتحان", cheat: "جداول المراجعة", saved: "المحفوظات", disclaimer: "تنويه" },
+    tabs: { home: "الرئيسية", cheat: "المراجعة", traps: "المطبات", notes: "بحث", saved: "المحفوظ" },
     tabsLabel: "أقسام الموقع",
     toTop: "ارجع لفوق",
     skip: "روح للمحتوى على طول",
@@ -144,6 +144,7 @@ const P = {
   gauge: '<path d="m12 14 4-4M3.34 19a10 10 0 1 1 17.32 0"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
 };
 
 export const icon = (name, cls = "") =>
@@ -155,6 +156,7 @@ const NAV = [
   { href: "cheat-tables.html", key: "cheat" },
   { href: "traps.html", key: "traps" },
   { href: "notes.html", key: "notes" },
+  { href: "bookmarks.html", key: "saved" },
   { href: "disclaimer.html", key: "disclaimer" },
 ];
 // Phones get a fixed bottom tab bar instead of the header links, so navigation is always one tap away.
@@ -163,7 +165,10 @@ const TABS = [
   { href: "cheat-tables.html", key: "cheat", icon: "table" },
   { href: "traps.html", key: "traps", icon: "alert" },
   { href: "notes.html", key: "notes", icon: "search" },
+  { href: "bookmarks.html", key: "saved", icon: "bookmark" },
 ];
+// How many bookmarks are saved; site.js fills it in and hides it at zero.
+const bmCount = `<b class="bm-count" data-bm-count hidden></b>`;
 
 // English pages live at the site root, Arabic pages under ar/ with the same file names.
 export function layout({ lang = "en", page, title, description, active, body, bodyClass = "" }) {
@@ -173,10 +178,10 @@ export function layout({ lang = "en", page, title, description, active, body, bo
   const arHref = lang === "en" ? `ar/${page}` : page;
   const fullTitle = title ? `${title} · ${SITE.name}` : SITE.name;
   const nav = NAV.map(
-    (n) => `<li><a href="${n.href}"${n.key === active ? ' aria-current="page"' : ""}><span>${S.nav[n.key]}</span></a></li>`
+    (n) => `<li><a href="${n.href}"${n.key === active ? ' aria-current="page"' : ""}><span>${S.nav[n.key]}${n.key === "saved" ? bmCount : ""}</span></a></li>`
   ).join("");
   const tabs = TABS.map(
-    (t) => `<a href="${t.href}"${t.key === active ? ' aria-current="page"' : ""}>${icon(t.icon)}<span>${S.tabs[t.key]}</span></a>`
+    (t) => `<a href="${t.href}"${t.key === active ? ' aria-current="page"' : ""}>${icon(t.icon)}${t.key === "saved" ? bmCount : ""}<span>${S.tabs[t.key]}</span></a>`
   ).join("");
   return `<!doctype html>
 <html lang="${lang}" dir="${lang === "ar" ? "rtl" : "ltr"}">

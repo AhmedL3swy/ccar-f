@@ -379,9 +379,20 @@ table.traps td.whycol { color: var(--fg-muted); }
 .cs-thumb-foot .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-inline-start: auto; }
 .btn-sm { padding: 3px 10px; font-size: 13px; }
 .btn-sm svg { width: 14px; height: 14px; }
+/* Links to the exam traps: a domain's (button) or one task's (pill with the trap count) */
+.btn-traps svg { color: var(--danger); }
+.btn-traps .Counter { margin-inline-start: 2px; }
+.trap-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 9px; border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius: 2em; background: color-mix(in srgb, var(--danger) 6%, var(--bg)); color: var(--danger); font: 600 12px/1 var(--mono); white-space: nowrap; }
+.trap-pill:hover { text-decoration: none; background: color-mix(in srgb, var(--danger) 14%, var(--bg)); }
+.trap-pill svg { width: 13px; height: 13px; }
+.cs-thumb > .Box-body { flex: 1; }
 .cs-thumb ol { list-style: none; display: grid; gap: 4px; font-size: 13.5px; color: var(--fg-muted); }
-.cs-thumb li { display: grid; grid-template-columns: 32px minmax(0, 1fr); }
+/* Each task opens its card on the cheat table; the pill beside it opens its traps. */
+.cs-thumb li { display: flex; align-items: flex-start; gap: 8px; }
+.cs-task { flex: 1; min-width: 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); color: var(--fg-muted); }
+.cs-task:hover { color: var(--fg); text-decoration: none; }
 .cs-thumb li b { font-family: var(--mono); color: var(--c); font-weight: 600; }
+.cs-thumb .trap-pill { height: 22px; padding: 0 7px; margin-top: -1px; }
 
 .sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 28px 16px; border-bottom: 1px solid var(--border); }
 .sheet-head h1 { font-size: 28px; flex: 1 1 400px; }
@@ -397,7 +408,7 @@ table.traps td.whycol { color: var(--fg-muted); }
 .cs-h h2 { font-size: 15px; }
 .cs-h p { grid-column: 2; font-size: 13px; color: var(--fg-muted); }
 .sum-mini { grid-column: 3; grid-row: 1; align-self: center; display: grid; place-items: center; width: 28px; height: 28px; margin-block: -4px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg); color: var(--fg-muted); cursor: pointer; }
-.cs-h a.sum-mini { grid-column: 4; } /* the task's traps, beside its summary */
+.cs-h .trap-pill { grid-column: 4; grid-row: 1; align-self: center; margin-block: -4px; } /* the task's traps, beside its summary */
 .sum-mini:hover { color: var(--c); border-color: var(--c); text-decoration: none; }
 .sum-mini svg { width: 14px; height: 14px; }
 
@@ -437,26 +448,13 @@ table.gh.decide td.q { font-weight: 600; width: 46%; }
   table.gh.compare td:not(:first-child)::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 600; color: var(--fg-muted); }
 }
 
-/* Cheat table sections fold away behind a switch (<details class="fold">); Key facts & terms holds one box per task statement */
+/* Comparisons and Key facts & terms fold away behind a switch (<details class="fold">); facts hold one box per task statement */
 .section-lead { margin: -8px 0 16px; color: var(--fg-muted); font-size: 14px; max-width: 80ch; }
 .fold > summary { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-bottom: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-muted); cursor: pointer; }
 .fold > summary::-webkit-details-marker { display: none; }
 .fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .fold:not([open]) > summary { margin-bottom: 0; }
 .fold > summary h2 { font-size: 20px; }
-.fold .cs-grid { margin-top: 0; }
-/* The domain summary, read on the page */
-/* The translate button floats in the corner so text in either language wraps around it. */
-.sum-inline { padding: 16px 18px; font-size: 15.5px; line-height: 1.7; }
-.sum-inline > .trx-btn { float: right; margin: 0 0 6px 12px; }
-[dir="rtl"] .sum-inline > .trx-btn { float: left; margin: 0 12px 6px 0; }
-.sum-inline > .tx > * + * { margin-top: 12px; }
-.sum-inline .sum-item h3 { font-size: 15.5px; margin-bottom: 4px; }
-.sum-inline .sum-item h3 a { color: var(--fg); }
-.sum-inline .sum-item h3 a:hover { color: var(--accent); text-decoration: none; }
-.sum-inline .sum-item p + p { margin-top: 8px; }
-.sum-inline strong { font-weight: 600; }
-@media (max-width: 560px) { .sum-inline { padding: 14px; font-size: 15px; } }
 .ft-count { font-size: 13px; color: var(--fg-muted); }
 .ft-switch { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; user-select: none; }
 .switch-vis { position: relative; flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--border); transition: background .15s; }
@@ -713,3 +711,47 @@ html.modal-open, html:has(dialog[open]) { overflow: hidden; }
 
 /* English term in parentheses inside Arabic text: keep it as one left-to-right unit */
 bdi.iso { display: inline-block; direction: ltr; unicode-bidi: isolate; }
+
+/* ---------- Bookmarks: the button on each row, the count in the nav, and the bookmarks page ---------- */
+.row-acts { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bm-btn { display: grid; place-items: center; width: 32px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--btn-bg); color: var(--fg-muted); cursor: pointer; }
+.bm-btn:hover { color: var(--fg); background: var(--btn-hover); }
+.bm-btn svg { width: 14px; height: 14px; }
+.bm-btn[aria-pressed="true"] { color: var(--attention); border-color: color-mix(in srgb, var(--attention) 60%, transparent); }
+.bm-btn[aria-pressed="true"] svg { fill: currentColor; }
+@media (max-width: 700px) {
+  table.stack td.trx .row-acts { flex-direction: row; }
+}
+.bm-ic { width: 1em; height: 1em; vertical-align: -.125em; }
+.bm-count { display: inline-block; min-width: 18px; margin-inline-start: 6px; padding: 0 5px; border-radius: 2em; background: var(--attention); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+.bm-count[hidden] { display: none; }
+.tabbar .bm-count { position: absolute; top: 5px; left: calc(50% + 6px); margin: 0; min-width: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; }
+[dir="rtl"] .tabbar .bm-count { left: auto; right: calc(50% + 6px); }
+.bm-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.bm-bar [data-bm-clear][hidden], .bm-filter button[hidden] { display: none; }
+.bm-list { display: grid; gap: 12px; }
+.bm-item { overflow: hidden; }
+.bm-h { display: flex; align-items: center; gap: 8px 10px; padding: 8px 12px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-muted); }
+.bm-h > a { flex: 1; min-width: 0; color: var(--fg-muted); font-size: 13px; }
+.bm-h .kind { margin: 0; }
+.bm-h .row-acts { flex-direction: row; }
+.bm-kind { --k: var(--fg-muted); }
+.bm-trap .bm-kind { --k: var(--danger); }
+.bm-decide .bm-kind { --k: var(--success); }
+.bm-concept .bm-kind { --k: var(--accent); }
+.bm-fact .bm-kind { --k: var(--attention); }
+.bm-term .bm-kind { --k: var(--done); }
+.bm-body { display: grid; gap: 8px; padding: 12px 14px; font-size: 15px; }
+.bm-c0 { font-weight: 600; }
+.bm-c0 .kind { display: none; } /* the header already says what kind it is */
+.bm-lbl { font-size: 12px; font-weight: 600; color: var(--fg-muted); }
+.bm-trap .bm-c1 .bm-lbl { color: var(--danger); }
+.bm-trap .bm-c2 .bm-lbl { color: var(--success); }
+.bm-trap .bm-c1 { color: var(--fg-muted); }
+.bm-decide .bm-c1 .bm-lbl { color: var(--success); }
+.bm-empty { padding: 24px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--fg-muted); text-align: center; }
+.bm-empty[hidden] { display: none; }
+@media print { .bm-btn, .bm-count { display: none !important; } }
+/* The group chips pick one group, they don't switch a row type off: no strike-through. */
+.bm-filter button[aria-pressed="false"] { text-decoration: none; opacity: 1; }
+.bm-filter button[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
