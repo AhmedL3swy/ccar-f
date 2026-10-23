@@ -260,6 +260,52 @@
     if (trHash) openTraps(trHash[2] ? trHash[2] + "." + trHash[3] : "all");
   }
 
+  /* ---------- Decision table: quiz mode on the page and in its dialog (each cheat table) ----------
+     Quiz mode hides every usual answer until its row is tapped (or Enter on the row); the switch is shared by
+     the page and the dialog, and remembered. data-decide-pop opens the dialog; "#decisions" opens it on load. */
+  var dqHosts = $$("[data-dq-host]"), dcDlg = $("#decide-dialog");
+  if (dqHosts.length) {
+    var dqToggles = $$("[data-dq]");
+    var setDq = function (on) {
+      dqHosts.forEach(function (h) {
+        h.classList.toggle("quiz", on);
+        $$("td.a", h).forEach(function (c) { c.classList.remove("revealed"); });
+      });
+      dqToggles.forEach(function (t) { t.checked = on; });
+    };
+    dqToggles.forEach(function (t) {
+      t.addEventListener("change", function () { setDq(t.checked); store.set("ccarf-dq", t.checked ? "1" : "0"); });
+    });
+    var dqRow = function (e) {
+      var row = e.target.closest("table.decide tbody tr"), host = row && row.closest("[data-dq-host]");
+      return host && host.classList.contains("quiz") && !e.target.closest("button, a") ? row : null;
+    };
+    document.addEventListener("click", function (e) {
+      var row = dqRow(e);
+      if (row) $("td.a", row).classList.toggle("revealed");
+    });
+    document.addEventListener("keydown", function (e) {
+      if ((e.key !== "Enter" && e.key !== " ") || !e.target.matches("table.decide tbody tr")) return;
+      var row = dqRow(e);
+      if (row) { e.preventDefault(); $("td.a", row).classList.toggle("revealed"); }
+    });
+    setDq(store.get("ccarf-dq") === "1");
+  }
+  if (dcDlg) {
+    var dropDcHash = function () {
+      if (location.hash === "#decisions") { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* not allowed here */ } }
+    };
+    var openDecide = function () { showModal(dcDlg); $(".sum-body", dcDlg).scrollTop = 0; };
+    document.addEventListener("click", function (e) {
+      if (e.target.closest("[data-decide-pop]")) { e.preventDefault(); openDecide(); }
+    });
+    dcDlg.addEventListener("click", function (e) {
+      if (e.target === dcDlg || e.target.closest("[data-dc-close]")) { closeModal(dcDlg); dropDcHash(); } // backdrop or close button
+    });
+    dcDlg.addEventListener("close", dropDcHash); // Escape key
+    if (location.hash === "#decisions") openDecide();
+  }
+
   /* ---------- Cheat tables (index and each table): the pinned jump bar follows the scroll position ---------- */
   var sheet = $("[data-jump]");
   if (sheet) {
@@ -334,6 +380,7 @@
     getAnchor = function () {
       if (dlg && dlg.open && dlg.getAttribute("data-default")) return "summary";
       if (trDlg && trDlg.open) return trKey === "all" ? "traps" : "tr-" + trKey.replace(".", "-");
+      if (dcDlg && dcDlg.open) return "decisions";
       var i = inView();
       return i >= 0 ? jumpLinks[i].getAttribute("href").slice(1) : "";
     };

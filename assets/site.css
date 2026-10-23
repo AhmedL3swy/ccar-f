@@ -771,3 +771,29 @@ bdi.iso { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 /* ---------- Search page: "for studying, use the cheat tables" ---------- */
 .pagehead p.study-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; color: var(--fg); font-size: 14.5px; }
 .study-note svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--accent); }
+
+/* ---------- Decision table: drill dialog shortcuts and quiz mode (each usual answer hidden until tapped) ---------- */
+.section > .sec-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-bottom: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-muted); }
+.sec-head h2 { font-size: 20px; }
+.sec-head .sum-btn svg, .btn-decide svg { color: var(--c); }
+.btn-decide .Counter { margin-inline-start: 2px; }
+.jumpbar .jump-dc { display: inline-flex; align-items: center; gap: 5px; }
+.jumpbar .jump-dc svg { width: 14px; height: 14px; color: var(--c); }
+.dq-toggle { margin-bottom: 10px; }
+.quiz table.decide tbody tr { cursor: pointer; }
+.quiz table.decide td.a { position: relative; }
+.quiz table.decide td.a:not(.revealed) > .ans { visibility: hidden; }
+.quiz table.decide td.a:not(.revealed)::after {
+  content: "Click to reveal"; position: absolute; inset: 6px; display: grid; place-items: center; border-radius: var(--radius);
+  border: 1px dashed var(--border); color: var(--fg-muted); font-size: 12px; font-weight: 400; background: var(--bg-subtle);
+}
+:lang(ar) .quiz table.decide td.a:not(.revealed)::after { content: "دوس عشان تشوف"; font-family: var(--font); }
+.quiz table.decide tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (max-width: 700px) {
+  .quiz table.decide td.a:not(.revealed) { min-height: 44px; }
+  .quiz table.decide td.a:not(.revealed)::after { inset: 0; content: "Tap to reveal"; }
+  :lang(ar) .quiz table.decide td.a:not(.revealed)::after { content: "دوس عشان تشوف"; }
+}
+table.decide td.a .ans { display: inline; } /* stays on the line of the phone layout's "→" */
+.decide-dialog .section-lead { margin: 0; }
+.decide-dialog .dq-toggle { margin-bottom: 0; }

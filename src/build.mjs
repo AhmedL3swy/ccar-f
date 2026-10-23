@@ -86,7 +86,7 @@ const P = {
     cheatPageTitle: (d) => `Cheat Table ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam), with a summary of every task statement.`,
     openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", trapsOf: (c) => `Traps for ${c}`, trapsAll: (n) => `All ${n} traps in this domain`,
-    compareH: "Comparison tables", compareJump: "Comparisons", nTables: (n) => `${n} tables`,
+    compareH: "Comparison tables", compareJump: "Comparisons", nTables: (n) => `${n} tables`, nRows: (n) => `${n} rows`, decidePop: "Drill in a pop-up",
     factsH: "Key facts & terms", factsJump: "Facts & terms", factsCol: "Key facts", termsCol: "Terms",
     factsLead: "The exact names, values and definitions behind each task statement, for when you want more detail. The switch remembers your choice, and the translate button on each box switches it to Arabic.",
     ftCount: (f, t) => `${f} facts · ${t} terms`, ftShow: "Show",
@@ -174,7 +174,7 @@ const P = {
     cheatPageTitle: (d) => `جدول المراجعة ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان)، ومعاه ملخص لكل مهمة.`,
     openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", trapsOf: (c) => `مطبات ${c}`, trapsAll: (n) => `كل مطبات المجال (${n})`,
-    compareH: "جداول المقارنة", compareJump: "المقارنات", nTables: (n) => `${n} جداول`,
+    compareH: "جداول المقارنة", compareJump: "المقارنات", nTables: (n) => `${n} جداول`, nRows: (n) => `${n} صف`, decidePop: "ذاكره في نافذة",
     factsH: "معلومات ومصطلحات مهمة", factsJump: "المعلومات والمصطلحات", factsCol: "معلومات مهمة", termsCol: "مصطلحات",
     factsLead: "الأسامي والأرقام والتعريفات بالظبط لكل مهمة، لما تحب تعرف تفاصيل أكتر. الزرار بيفتكر اختيارك، وزرار الترجمة اللي في كل مربع بيعرضه بالإنجليزي.",
     ftCount: (f, t) => `${f} معلومة · ${t} مصطلح`, ftShow: "اعرض",
@@ -595,11 +595,32 @@ ${tasks}
           .join("")}</tbody></table></div></div></div>`
       )
       .join("");
-    const decide = (sh.decide || []).length
-      ? `<section class="section" id="decide"><h2>${S.decideH}</h2><p class="section-lead">${S.decideLead}</p>
+    // The decision table, on the page and again in its own dialog for drilling. Both have the quiz switch
+    // (data-dq): each usual answer stays hidden until tapped. A bookmarked row opens the dialog (#decisions).
+    const nDecide = (sh.decide || []).length;
+    const decideTable = () => `<label class="toggle dq-toggle"><input type="checkbox" data-dq> ${S.quiz}</label>
   <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th>${trxTh}</tr></thead><tbody>${sh.decide
-    .map(([q, a], i) => `<tr ${bmAttrs(`decide:${d.n}:${i}`, "decide", `cheat-table-${d.n}.html#decide`, `${S.domainLabel(d.n)} · ${S.decideH}`, `${A.domainLabel(d.n)} · ${A.decideH}`)}><td class="q">${md(q)}</td><td class="a">${md(a)}</td><td class="trx"><div class="row-acts">${bmBtn}</div></td></tr>`)
-    .join("")}</tbody></table></div></div></section>`
+    .map(([q, a], i) => `<tr tabindex="0" ${bmAttrs(`decide:${d.n}:${i}`, "decide", `cheat-table-${d.n}.html#decisions`, `${S.domainLabel(d.n)} · ${S.decideH}`, `${A.domainLabel(d.n)} · ${A.decideH}`)}><td class="q">${md(q)}</td><td class="a"><div class="ans">${md(a)}</div></td><td class="trx"><div class="row-acts">${bmBtn}</div></td></tr>`)
+    .join("")}</tbody></table></div></div>`;
+    const decidePop = (cls, label) => `<button type="button" class="${cls}" data-decide-pop>${icon("target")}<span>${label}</span></button>`;
+    const decide = nDecide
+      ? `<section class="section" id="decide" data-dq-host><div class="sec-head"><h2>${S.decideH}</h2>${decidePop("sum-btn", S.decidePop)}</div><p class="section-lead">${S.decideLead}</p>
+  ${decideTable()}</section>`
+      : "";
+    const decideDialog = nDecide
+      ? `
+<dialog class="sum-dialog traps-dialog decide-dialog" id="decide-dialog" aria-labelledby="dc-title" data-dq-host>
+  <div class="sum-inner">
+    <div class="sum-head">
+      <div class="sum-titles"><span class="Label">${S.domainLabel(d.n)}</span><h2 id="dc-title">${S.decideH} · ${S.nRows(nDecide)}</h2></div>
+      <div class="sum-tools"><button type="button" class="sum-close" data-dc-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
+    </div>
+    <div class="sum-body tr-body">
+      <p class="section-lead">${S.decideLead}</p>
+      ${decideTable()}
+    </div>
+  </div>
+</dialog>`
       : "";
     const s = stats(d);
     write(`cheat-table-${d.n}.html`, {
@@ -608,12 +629,12 @@ ${tasks}
       active: "cheat",
       body: `
 <div class="container" style="--c:${d.color}" data-sheet data-jump>
-  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span><a class="btn btn-sm btn-traps" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.domTraps(d.n)}<span class="Counter">${s.traps}</span></a><p>${esc(sh.sub)}</p>
+  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span>${nDecide ? `<button type="button" class="btn btn-sm btn-decide" data-decide-pop>${icon("target")}${S.decideH}<span class="Counter">${nDecide}</span></button>` : ""}<a class="btn btn-sm btn-traps" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.domTraps(d.n)}<span class="Counter">${s.traps}</span></a><p>${esc(sh.sub)}</p>
     <div class="sheet-nav">${sheetNav(d)}</div>
   </header>
   <nav class="jumpbar" aria-label="${esc(S.jumpLabel)}"><div class="jumpbar-in">
     ${sumBtn(`d${d.n}`, S.sumDomain).replace('class="sum-btn"', 'class="sum-btn jump-sum"')}
-    ${jumpTasks}${decide ? `<a href="#decide">${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
+    ${jumpTasks}${decide ? `<a class="jump-dc" href="#decide" data-decide-pop>${icon("target")}${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
     <a class="jump-out" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.linkTraps}</a>
   </div></nav>
   <div class="cs-grid">${cards}</div>
@@ -627,6 +648,7 @@ ${tasks}
   </div>
   ${sumDialog("c", [d])}
   ${trapsDialog(d, di)}
+  ${decideDialog}
 </div>`,
     });
   });
