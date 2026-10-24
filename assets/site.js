@@ -464,6 +464,65 @@
     bmRender();
   }
 
+  /* ---------- Study plan: one checkbox per task statement and step, kept in localStorage ----------
+     Saved as { "1.1:sum": 1, … }; a finished row, a finished domain and the overall bar are worked out from it. */
+  var planPage = $("[data-plan-page]");
+  if (planPage) {
+    var PLAN_KEY = "ccarf-plan";
+    var planGet = function () {
+      try { var v = JSON.parse(store.get(PLAN_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; }
+    };
+    var planBoxes = $$("[data-plan]", planPage);
+    var ticked = function (bs) { return bs.filter(function (b) { return b.checked; }).length; };
+    var planShow = function () {
+      var saved = planGet();
+      planBoxes.forEach(function (b) { b.checked = !!saved[b.getAttribute("data-plan")]; });
+      $$("[data-plan-row]", planPage).forEach(function (r) { var bs = $$("[data-plan]", r); r.classList.toggle("done", ticked(bs) === bs.length); });
+      $$("[data-plan-d]", planPage).forEach(function (g) {
+        var bs = $$("[data-plan]", g), n = ticked(bs);
+        $("[data-plan-count]", g).textContent = n + "/" + bs.length;
+        g.classList.toggle("done", n === bs.length);
+      });
+      var done = ticked(planBoxes), pct = Math.round((done * 100) / planBoxes.length);
+      $("[data-plan-bar]", planPage).style.width = pct + "%";
+      $("[data-plan-total]", planPage).textContent = planPage.getAttribute("data-plan-tpl").replace("{done}", done).replace("{total}", planBoxes.length).replace("{pct}", pct);
+    };
+    planPage.addEventListener("change", function (e) {
+      var b = e.target.closest("[data-plan]");
+      if (!b) return;
+      var saved = planGet(), k = b.getAttribute("data-plan");
+      if (b.checked) saved[k] = 1; else delete saved[k];
+      store.set(PLAN_KEY, JSON.stringify(saved));
+      planShow();
+    });
+    $("[data-plan-reset]", planPage).addEventListener("click", function () {
+      if (window.confirm(planPage.getAttribute("data-plan-confirm"))) { store.set(PLAN_KEY, "{}"); planShow(); }
+    });
+    window.addEventListener("storage", function (e) { if (e.key === PLAN_KEY) planShow(); }); // ticked in another tab
+    planShow();
+
+    // A domain's heading row folds its task rows away; the folded domains are remembered ({ "1": 1, … }).
+    var FOLD_KEY = "ccarf-plan-folded";
+    var foldGet = function () {
+      try { var v = JSON.parse(store.get(FOLD_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; }
+    };
+    var setFold = function (g, folded) {
+      g.classList.toggle("folded", folded);
+      $("[data-plan-fold]", g).setAttribute("aria-expanded", folded ? "false" : "true");
+    };
+    var folded = foldGet();
+    $$("[data-plan-d]", planPage).forEach(function (g) { setFold(g, !!folded[g.getAttribute("data-plan-d")]); });
+    planPage.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-plan-fold]");
+      if (!b) return;
+      var g = b.closest("[data-plan-d]"), n = g.getAttribute("data-plan-d"), saved = foldGet();
+      var fold = !g.classList.contains("folded");
+      setFold(g, fold);
+      if (fold) saved[n] = 1; else delete saved[n];
+      store.set(FOLD_KEY, JSON.stringify(saved));
+    });
+  }
+
   /* ---------- Notes / Traps filtering ---------- */
   var page = $("[data-filter-page]");
   if (!page) return;

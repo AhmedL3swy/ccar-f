@@ -30,8 +30,8 @@ export const DOMAINS = [
 // Interface text. Arabic is Egyptian colloquial on purpose; technical terms stay in English.
 export const STR = {
   en: {
-    nav: { home: "Home", notes: "Search", traps: "Exam Traps", cheat: "Cheat Tables", saved: "Bookmarks", disclaimer: "Disclaimer" },
-    tabs: { home: "Home", cheat: "Cheat tables", traps: "Traps", notes: "Search", saved: "Saved" },
+    nav: { home: "Home", plan: "Plan", notes: "Search", traps: "Exam Traps", cheat: "Cheat Tables", saved: "Bookmarks", disclaimer: "Disclaimer" },
+    tabs: { home: "Home", plan: "Plan", cheat: "Cheat tables", traps: "Traps", notes: "Search", saved: "Saved" },
     tabsLabel: "Sections of the site",
     toTop: "Back to top",
     skip: "Skip to content",
@@ -42,8 +42,8 @@ export const STR = {
     footer2: `Not affiliated with or endorsed by Anthropic. Check the official documentation before relying on a detail. <a href="disclaimer.html">Read the disclaimer</a>.`,
   },
   ar: {
-    nav: { home: "الرئيسية", notes: "بحث", traps: "مطبات الامتحان", cheat: "جداول المراجعة", saved: "المحفوظات", disclaimer: "تنويه" },
-    tabs: { home: "الرئيسية", cheat: "المراجعة", traps: "المطبات", notes: "بحث", saved: "المحفوظ" },
+    nav: { home: "الرئيسية", plan: "الخطة", notes: "بحث", traps: "مطبات الامتحان", cheat: "جداول المراجعة", saved: "المحفوظات", disclaimer: "تنويه" },
+    tabs: { home: "الرئيسية", plan: "الخطة", cheat: "المراجعة", traps: "المطبات", notes: "بحث", saved: "المحفوظ" },
     tabsLabel: "أقسام الموقع",
     toTop: "ارجع لفوق",
     skip: "روح للمحتوى على طول",
@@ -126,6 +126,7 @@ const P = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
   external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   arrowRight: '<path d="M5 12h14M12 5l7 7-7 7"/>',
+  chevronDown: '<path d="m6 9 6 6 6-6"/>',
   arrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
   arrowUp: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
@@ -153,6 +154,7 @@ export const icon = (name, cls = "") =>
 // The notes page is the site's search page, so it is labelled "Search" everywhere.
 const NAV = [
   { href: "index.html", key: "home" },
+  { href: "plan.html", key: "plan" },
   { href: "cheat-tables.html", key: "cheat" },
   { href: "traps.html", key: "traps" },
   { href: "notes.html", key: "notes" },
@@ -162,6 +164,7 @@ const NAV = [
 // Phones get a fixed bottom tab bar instead of the header links, so navigation is always one tap away.
 const TABS = [
   { href: "index.html", key: "home", icon: "home" },
+  { href: "plan.html", key: "plan", icon: "circleCheck" },
   { href: "cheat-tables.html", key: "cheat", icon: "table" },
   { href: "traps.html", key: "traps", icon: "alert" },
   { href: "notes.html", key: "notes", icon: "search" },

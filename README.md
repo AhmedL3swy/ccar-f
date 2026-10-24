@@ -1,12 +1,12 @@
 # CCAR-F Field Guide
 
-Unofficial study site for the Claude Certified Architect – Foundations (CCAR-F) exam, in English and Egyptian Arabic: five one-page cheat tables (each with a decision table grouped by task statement, comparison tables, key facts and terms, and a plain-language summary of every task statement), exam traps with a quiz mode on their own page (for practice; the cheat tables don't link to them), a search page over all the notes (with short versions), a bookmarks page for the decision table rows, traps, notes and facts you save (kept in the browser's localStorage), and a disclaimer. On phones a bottom tab bar, a pinned search row and a pinned jump bar keep navigation one tap away.
+Unofficial study site for the Claude Certified Architect – Foundations (CCAR-F) exam, in English and Egyptian Arabic: five one-page cheat tables (each with a decision table grouped by task statement, comparison tables, key facts and terms, and a plain-language summary of every task statement), exam traps with a quiz mode on their own page (for practice; the cheat tables don't link to them), a search page over all the notes (with short versions), a study plan page to tick off each task statement's steps (summary, decision table, exam traps, practice questions), a bookmarks page for the decision table rows, traps, notes and facts you save (kept in the browser's localStorage), and a disclaimer. On phones a bottom tab bar, a pinned search row and a pinned jump bar keep navigation one tap away.
 
 Everything is in this one static folder. The build packs it into `website.zip` for upload.
 
 ```
 website/
-├─ index.html  notes.html  traps.html  cheat-tables.html  cheat-table-1…5.html  bookmarks.html  disclaimer.html  404.html
+├─ index.html  plan.html  notes.html  traps.html  cheat-tables.html  cheat-table-1…5.html  bookmarks.html  disclaimer.html  404.html
 ├─ ar/          Arabic (right-to-left) versions of every page, same file names
 ├─ assets/      site.css, site.js (edit these), favicon.svg (generated)
 ├─ data/        content: d1.json … d5.json (English), d1.ar.json … d5.ar.json (Arabic)

@@ -122,6 +122,13 @@ const P = {
     bmEmpty: `Nothing saved yet. Tap the ${icon("bookmark", "bm-ic")} button on a row in a <a href="cheat-tables.html">decision table</a>, the <a href="traps.html">exam traps</a> or the <a href="notes.html">notes</a>, and it shows up here.`,
     bmGroups: { all: "All", trap: "Traps", decide: "Decisions", note: "Notes & facts" },
     bmKinds: { trap: "Trap", decide: "Decision", concept: "Key concept", note: "Note", fact: "Fact", term: "Term" },
+    planTitle: "Study plan",
+    planDesc: "Track your CCAR-F study progress per task statement: summary, decision table, exam traps and practice questions.",
+    planLead: "Tick each step as you finish it, for every task statement: read its summary, study its decision table rows, practise its exam traps, then solve practice questions elsewhere. Your ticks are kept in this browser only.",
+    planTh: ["Task statement", "Read summary", "Decision table", "Exam traps", "Solved questions (external)"],
+    planShort: ["Summary", "Decisions", "Traps", "Solved Qs"], // phones: each step's name above its checkbox
+    planFold: "Show or hide this domain's task statements",
+    planDone: "{done} of {total} steps done · {pct}%", planReset: "Reset", planConfirm: "Clear all your ticks in the plan?",
     nfTitle: "Page not found",
     nfBody: `The page you asked for doesn't exist. Go to the <a href="index.html">home page</a>, the <a href="cheat-tables.html">cheat tables</a>, the <a href="traps.html">exam traps</a> or <a href="notes.html">search the notes</a>.`,
   },
@@ -210,6 +217,13 @@ const P = {
     bmEmpty: `لسه ماحفظتش حاجة. دوس على زرار ${icon("bookmark", "bm-ic")} جنب أي صف في <a href="cheat-tables.html">جدول القرارات</a> أو <a href="traps.html">المطبات</a> أو <a href="notes.html">الملاحظات</a>، وهتلاقيه هنا.`,
     bmGroups: { all: "الكل", trap: "المطبات", decide: "القرارات", note: "الملاحظات والمعلومات" },
     bmKinds: { trap: "مطب", decide: "قرار", concept: "الفكرة الأساسية", note: "ملاحظة", fact: "معلومة", term: "مصطلح" },
+    planTitle: "خطة المذاكرة",
+    planDesc: "تابع مذاكرتك لامتحان CCAR-F في كل مهمة: الملخص، وجدول القرارات، ومطبات الامتحان، وأسئلة التمرين.",
+    planLead: "علّم على كل خطوة لما تخلصها في كل مهمة: اقرا الملخص بتاعها، وذاكر صفوف جدول القرارات بتاعتها، واتمرن على المطبات بتاعتها، وبعدين حل أسئلة تمرين من برّه. العلامات بتتحفظ في المتصفح ده بس.",
+    planTh: ["المهمة", "قريت الملخص", "جدول القرارات", "مطبات الامتحان", "حليت أسئلة (من برّه)"],
+    planShort: ["الملخص", "القرارات", "المطبات", "الأسئلة"],
+    planFold: "اعرض أو خبّي مهام المجال ده",
+    planDone: "خلصت {done} من {total} خطوة · {pct}%", planReset: "ابدأ من الأول", planConfirm: "تمسح كل العلامات اللي في الخطة؟",
     nfTitle: "الصفحة مش موجودة",
     nfBody: `الصفحة اللي بتدوّر عليها مش موجودة. روح <a href="index.html">للرئيسية</a> أو <a href="cheat-tables.html">لجداول المراجعة</a> أو <a href="traps.html">لمطبات الامتحان</a>، أو <a href="notes.html">دوّر في الملاحظات</a>.`,
   },
@@ -682,6 +696,35 @@ ${tasks}
     <p class="bm-empty" data-bm-empty>${S.bmEmpty}</p>
   </div>
   <script type="application/json" id="bm-text">${JSON.stringify(bmText).replace(/</g, "\\u003c")}</script>
+</div>`,
+  });
+
+  /* ------------------------------------------------------------- Plan */
+  // A progress table: one row per task statement, one checkbox per study step (data-plan="1.1:sum").
+  // site.js keeps the ticks in localStorage and fills in the counts and the progress bar. Each domain's heading
+  // row folds its task rows away (data-plan-fold); which domains are folded is remembered too.
+  const planSteps = ["sum", "dc", "traps", "q"];
+  const planGroups = data
+    .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th colspan="5"><button type="button" class="plan-dh-in" data-plan-fold aria-expanded="true" title="${esc(S.planFold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)}</span><span class="Counter" data-plan-count>0/${d.lessons.length * planSteps.length}</span></button></th></tr>${d.lessons
+      .map((l) => `<tr data-plan-row><td class="plan-task"><a href="cheat-table-${d.n}.html${hasCard(l.code) ? `#${id("c", l.code)}` : ""}"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a></td>${planSteps
+        .map((k, i) => `<td class="plan-step"><label class="plan-cb" data-label="${esc(S.planShort[i])}"><input type="checkbox" data-plan="${l.code}:${k}" aria-label="${esc(`${l.code} · ${S.planTh[i + 1]}`)}"></label></td>`)
+        .join("")}</tr>`)
+      .join("")}</tbody>`)
+    .join("");
+  write("plan.html", {
+    title: S.planTitle,
+    description: S.planDesc,
+    active: "plan",
+    body: `
+<div class="container">
+  <div class="pagehead"><h1>${S.planTitle}</h1><p>${S.planLead}</p></div>
+  <div class="plan" data-plan-page data-plan-tpl="${esc(S.planDone)}" data-plan-confirm="${esc(S.planConfirm)}">
+    <div class="plan-top">
+      <div class="plan-prog"><div class="plan-bar"><span data-plan-bar></span></div><p data-plan-total aria-live="polite"></p></div>
+      <button type="button" class="btn btn-sm" data-plan-reset>${icon("x")}${S.planReset}</button>
+    </div>
+    <div class="Box"><div class="tscroll"><table class="gh plan-table"><thead><tr>${S.planTh.map((h, i) => `<th${i ? ' class="plan-step"' : ""}>${h}</th>`).join("")}</tr></thead>${planGroups}</table></div></div>
+  </div>
 </div>`,
   });
 
