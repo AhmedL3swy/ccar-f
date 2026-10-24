@@ -1,6 +1,6 @@
 # CCAR-F Field Guide
 
-Unofficial revision site for the Claude Certified Architect – Foundations (CCAR-F) exam. It is one page: a study plan listing the exam's five domains and 30 task statements, with a checkbox for each study step (summary, decisions & terms, exam traps, practice questions). **Continue**, above the plan, opens the first step you haven't ticked. Tapping a task opens it in a pop-up with three tabs:
+Unofficial revision site for the Claude Certified Architect – Foundations (CCAR-F) exam. It is one page: a study plan listing the exam's five domains and 30 task statements, with a checkbox for each study step (summary, decisions & terms, exam traps, practice questions). The checkbox beside each domain's count ticks every step in that domain, and the "All" checkbox above each step column ticks that step for every task in the domain (e.g. all its summaries); untick either to clear them. **Continue**, above the plan, opens the first step you haven't ticked. Tapping a task opens it in a pop-up with three tabs:
 
 - **Summary**: a plain-language summary of the task statement.
 - **Decisions & terms**: the decisions (symptom in the question → usual answer), then, under their own heading, the facts & terms to recall (question → answer).

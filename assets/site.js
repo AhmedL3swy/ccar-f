@@ -48,6 +48,11 @@
   };
   var planBoxes = $$("[data-plan]", planPage), planNext = $("[data-plan-next]", planPage);
   var ticked = function (bs) { return bs.filter(function (b) { return b.checked; }).length; };
+  // The step checkboxes a domain-wide checkbox stands for: all of the domain's, or just one step's.
+  var covers = function (c) {
+    var k = c.getAttribute("data-plan-col");
+    return $$("[data-plan]", c.closest("[data-plan-d]")).filter(function (b) { return !k || b.getAttribute("data-plan").split(":")[1] === k; });
+  };
   var planShow = function () {
     var saved = planGet();
     planBoxes.forEach(function (b) { b.checked = !!saved[b.getAttribute("data-plan")]; });
@@ -56,6 +61,11 @@
       var bs = $$("[data-plan]", g), n = ticked(bs);
       $("[data-plan-count]", g).textContent = n + "/" + bs.length;
       g.classList.toggle("done", n === bs.length);
+      $$("[data-plan-all], [data-plan-col]", g).forEach(function (c) {
+        var cs = covers(c), m = ticked(cs);
+        c.checked = m === cs.length;
+        c.indeterminate = m > 0 && m < cs.length; // some ticked: a dash
+      });
     });
     var done = ticked(planBoxes), pct = Math.round((done * 100) / planBoxes.length);
     $("[data-plan-bar]", planPage).style.width = pct + "%";
@@ -70,11 +80,14 @@
     }
     if (pop && pop.open) popDone.checked = !!saved[popAt.code + ":" + popAt.tab];
   };
+  // A step's checkbox saves that step. A domain's checkboxes tick (or clear) several at once: every step in the
+  // domain (data-plan-all), or one step for every task in it (data-plan-col="sum": all its summaries).
   planPage.addEventListener("change", function (e) {
-    var b = e.target.closest("[data-plan]");
-    if (!b) return;
-    var saved = planGet(), k = b.getAttribute("data-plan");
-    if (b.checked) saved[k] = 1; else delete saved[k];
+    var c = e.target.closest("[data-plan-all], [data-plan-col]"), b = e.target.closest("[data-plan]");
+    var bs = c ? covers(c) : b ? [b] : [];
+    if (!bs.length) return;
+    var saved = planGet(), on = (c || b).checked;
+    bs.forEach(function (x) { var k = x.getAttribute("data-plan"); if (on) saved[k] = 1; else delete saved[k]; });
     store.set(PLAN_KEY, JSON.stringify(saved));
     planShow();
   });

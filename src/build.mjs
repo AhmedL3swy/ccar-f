@@ -49,6 +49,9 @@ const S = {
   cont: "Continue", contTitle: "Open the next step you haven't ticked",
   reset: "Reset", resetConfirm: "Clear all your ticks in the plan?",
   fold: "Show or hide this domain's task statements",
+  domainAll: (n) => `Mark every step in Domain ${n} done (untick to clear them)`,
+  columnAll: (step, n) => `Tick ${step} for every task in Domain ${n} (untick to clear them)`, all: "All",
+  by: { name: "AhmedL3swy", href: "https://github.com/AhmedL3swy/ccar-f/", title: "This site's source on GitHub (opens in a new tab)" },
   close: "Close", done: "Mark this step done", prev: "Previous task statement", next: "Next task statement",
   // Labels site.js builds the pop-up with.
   js: {
@@ -123,7 +126,9 @@ for (const d of data) {
 /* ---------------------------------------------------------------- Page */
 // The plan: one row per task statement, one checkbox per step (data-plan="1.1:sum"), kept in localStorage by
 // site.js, which also works out the counts and the progress bar. Each domain's heading row folds its task rows
-// away. The task and the button beside each step's checkbox are links (#1.3/decisions) that open the pop-up.
+// away; the checkbox beside its count ticks (or clears) every step in the domain at once, and the "All" checkbox
+// above each step column does the same for that step alone (every summary in the domain, say). The task and the
+// button beside each step's checkbox are links (#1.3/decisions) that open the pop-up.
 const steps = S.steps;
 const popSteps = steps.filter((s) => s.hash);
 // The 90 open buttons, and the pop-up's section headings, point at one copy of each icon (an inline sprite)
@@ -136,7 +141,9 @@ const external = `href="${S.test.href}" target="_blank" rel="noopener"`;
 const openLink = (code, s) =>
   `<a class="plan-open" ${s.hash ? `href="#${code}/${s.hash}"` : external} title="${esc(`${s.open} · ${code}`)}" aria-label="${esc(`${s.open} · ${code}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-${s.ic}"/></svg></a>`;
 const planGroups = data
-  .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th colspan="${steps.length + 1}"><button type="button" class="plan-dh-in" data-plan-fold aria-expanded="true" title="${esc(S.fold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)} <span class="plan-w">${d.weight}%</span></span><span class="Counter" data-plan-count>0/${d.en.length * steps.length}</span></button></th></tr>${d.en
+  .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th><div class="plan-dh-in"><button type="button" class="plan-dh-fold" data-plan-fold aria-expanded="true" title="${esc(S.fold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)} <span class="plan-w">${d.weight}%</span></span></button><label class="plan-dh-all" title="${esc(S.domainAll(d.n))}"><span class="Counter" data-plan-count>0/${d.en.length * steps.length}</span><input type="checkbox" data-plan-all aria-label="${esc(S.domainAll(d.n))}"></label></div></th>${steps
+    .map((s) => `<td class="plan-step" data-label="${esc(s.short)}"><div class="plan-cell"><label class="plan-cb plan-col" title="${esc(S.columnAll(s.th, d.n))}"><input type="checkbox" data-plan-col="${s.k}" aria-label="${esc(S.columnAll(s.th, d.n))}"><span>${S.all}</span></label></div></td>`)
+    .join("")}</tr>${d.en
     .map((l) => `<tr data-plan-row="${l.code}"><td class="plan-task"><a href="#${l.code}/summary"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a></td>${steps
       .map((s) => `<td class="plan-step" data-label="${esc(s.short)}"><div class="plan-cell"><label class="plan-cb"><input type="checkbox" data-plan="${l.code}:${s.k}" aria-label="${esc(`${l.code} · ${s.th}`)}"></label>${openLink(l.code, s)}</div></td>`)
       .join("")}</tr>`)
@@ -196,7 +203,7 @@ const planData = {
 };
 const body = `
 <div class="container">
-  <div class="pagehead"><h1>${S.title}</h1><p>${S.lead}</p><p class="exam-note">${S.examNote}</p></div>
+  <div class="pagehead"><div class="pagehead-t"><h1>${S.title}</h1><span class="byline">by <a href="${S.by.href}" target="_blank" rel="noopener" title="${esc(S.by.title)}">${icon("github")}<span>${S.by.name}</span></a></span></div><p>${S.lead}</p><p class="exam-note">${S.examNote}</p></div>
   <div class="plan" data-plan-page data-plan-tpl="${esc(S.progress)}" data-plan-confirm="${esc(S.resetConfirm)}">
     <div class="plan-top">
       <div class="plan-prog"><div class="plan-bar"><span data-plan-bar></span></div><p data-plan-total aria-live="polite"></p></div>
