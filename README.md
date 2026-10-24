@@ -1,16 +1,22 @@
 # CCAR-F Field Guide
 
-Unofficial study site for the Claude Certified Architect – Foundations (CCAR-F) exam, in English and Egyptian Arabic: five one-page cheat tables (each with a decision table grouped by task statement, comparison tables, key facts and terms, and a plain-language summary of every task statement), exam traps with a quiz mode on their own page (for practice; the cheat tables don't link to them), a search page over all the notes (with short versions), a study plan page to tick off each task statement's steps (summary, decision table, exam traps, practice questions), a bookmarks page for the decision table rows, traps, notes and facts you save (kept in the browser's localStorage), and a disclaimer. On phones a bottom tab bar, a pinned search row and a pinned jump bar keep navigation one tap away.
+Unofficial revision site for the Claude Certified Architect – Foundations (CCAR-F) exam. It is one page: a study plan listing the exam's five domains and 30 task statements, with a checkbox for each study step (summary, decisions & terms, exam traps, solved questions). Tapping a task opens it in a pop-up with three tabs:
 
-Everything is in this one static folder. The build packs it into `website.zip` for upload.
+- **Summary**: a plain-language summary of the task statement.
+- **Decisions & terms**: the decisions (symptom in the question → usual answer), then, under their own heading, the facts & terms to recall (question → answer).
+- **Traps**: beliefs that sound right but aren't, why each one fails and what's actually true, plus how the exam tests it.
+
+Quiz mode hides the answers until you tap them. Everything is in English; the ع button on each row (and on the summary) shows it in Egyptian Arabic. Ticks, folded domains, quiz mode and the theme are kept in the browser's localStorage.
+
+Each pop-up has its own address (`#1.4/summary`, `#1.4/decisions`, `#1.4/traps`, `#about`), so the phone's back button closes it and a link can open one directly.
 
 ```
 website/
-├─ index.html  plan.html  notes.html  traps.html  cheat-tables.html  cheat-table-1…5.html  bookmarks.html  disclaimer.html  404.html
-├─ ar/          Arabic (right-to-left) versions of every page, same file names
-├─ assets/      site.css, site.js (edit these), favicon.svg and pop/ (generated: pop-up content loaded on demand)
+├─ index.html   the page (generated)
+├─ _redirects   sends links to the old pages (cheat tables, traps, search, bookmarks, /ar/…) to the page
+├─ assets/      site.css, site.js (edit these), favicon.svg and pop/ (generated: each domain's pop-up content, loaded on demand)
 ├─ data/        content: d1.json … d5.json (English), d1.ar.json … d5.ar.json (Arabic)
-├─ src/         build.mjs, lib.mjs, cheatsheets.mjs, cheatsheets.ar.mjs
+├─ src/         build.mjs, lib.mjs, decisions.mjs, decisions.ar.mjs
 └─ README.md
 ```
 
@@ -24,22 +30,20 @@ Upload the zip, not the folder: the folder also holds the `.git` history, which 
 
 To publish an update: rebuild (below), then open the project → **Deployments** → **Create deployment** and upload the new zip.
 
-- Cloudflare serves clean URLs: `/notes.html` also works as `/notes`.
-- `404.html` is used automatically for missing pages.
-- The Arabic site is under `/ar/` (e.g. `/ar/notes`).
+- There is no `404.html`, so Cloudflare Pages serves the page for any unknown address.
 - `data/` and `src/` are uploaded too and are publicly readable (e.g. `/data/d1.json`); they contain only the site's own content and build code.
 
-The same folder works on any static host (Netlify Drop, Vercel, GitHub Pages, an S3 bucket…).
+The same folder works on any static host (Netlify Drop, Vercel, GitHub Pages, an S3 bucket…); `_redirects` is understood by Cloudflare Pages and Netlify.
 
 ## Edit content, then rebuild
 
 | File | What it holds |
 |---|---|
-| `data/d1.json` … `d5.json` | English: domain `intro`; per task statement `task`, `summary` (the plain-language summary shown by the Summary buttons: one or two paragraphs, about 170 words), `key_concept` (with `short`), `notes` (each with a `short` version), `facts`, `terms`, `traps`, `exam_tips`; plus the domain's `comparisons`. |
-| `data/d1.ar.json` … `d5.ar.json` | The same in Egyptian Arabic, same structure. Code in `backticks` must match the English exactly. |
-| `src/cheatsheets.mjs`, `src/cheatsheets.ar.mjs` | The five cheat tables, English and Arabic: the cards, plus each domain's decision table (`decide`: rows of symptom → usual answer for each task statement code; `recall`: question → answer rows covering that task's facts, terms, summary and comparison tables, shown after its decision rows under "Facts & terms"). The English and Arabic files must have the same rows in the same order for every task, since each row carries both languages; the build stops if they don't. |
-| `src/lib.mjs` | Page layout, icons, domain names and interface text (`STR`). |
-| `src/build.mjs` | Page text for both languages (`P`) and the page generator. |
+| `data/d1.json` … `d5.json` | English, per task statement: `task`, `summary` (the Summary tab: one or two paragraphs, about 170 words), `traps` and `exam_tips` (the Traps tab). The `notes`, `facts`, `terms`, `key_concept` and `comparisons` fields are source material the decisions & terms were written from; the page doesn't show them. |
+| `data/d1.ar.json` … `d5.ar.json` | The same in Egyptian Arabic, same structure and order. Code in `backticks` must match the English exactly. |
+| `src/decisions.mjs`, `src/decisions.ar.mjs` | The Decisions & terms tab, English and Arabic: `DECIDE` (symptom → usual answer rows for each task statement code) and `RECALL` (the facts & terms: question → answer rows covering that task's facts, terms, summary points and comparison tables). Both files must have the same rows in the same order for every task, since each row carries both languages; the build stops if they don't. |
+| `src/lib.mjs` | The page shell, icons and domain names. |
+| `src/build.mjs` | The page's text and the page generator. |
 | `assets/site.css`, `assets/site.js` | Styles and behaviour. |
 
 When you change content, change it in both the English and the Arabic file. Then rebuild (Node 18 or later), from inside this folder:
@@ -48,6 +52,6 @@ When you change content, change it in both the English and the Arabic file. Then
 node src/build.mjs
 ```
 
-The build rewrites only the `.html` pages, `assets/favicon.svg` and `assets/pop/` (each domain's summaries, decision table rows and traps, which the decision table and study plan pop-ups load only when opened); it never touches `data/`, `src/`, `assets/site.css`, `assets/site.js` or this README. It also refreshes `website.zip` next to this folder. Don't edit the `.html` files by hand: the next build replaces them.
+The build rewrites only `index.html`, `assets/favicon.svg` and `assets/pop/`; it never touches `data/`, `src/`, `assets/site.css`, `assets/site.js` or this README. It also refreshes `website.zip` next to this folder. Don't edit `index.html` by hand: the next build replaces it.
 
 Text fields accept `` `backticks` `` for inline code. Summaries also accept `**bold**` for key terms (never inside code) and a blank line between paragraphs. Everything else is plain text.

@@ -1,0 +1,26 @@
+# Cloudflare Pages redirects. The site is one page now (the study plan), so links to the old pages,
+# and to the old Arabic copy under /ar/, land on it.
+/plan /  301
+/plan.html /  301
+/notes /  301
+/notes.html /  301
+/traps /  301
+/traps.html /  301
+/cheat-tables /  301
+/cheat-tables.html /  301
+/cheat-table-1 /  301
+/cheat-table-1.html /  301
+/cheat-table-2 /  301
+/cheat-table-2.html /  301
+/cheat-table-3 /  301
+/cheat-table-3.html /  301
+/cheat-table-4 /  301
+/cheat-table-4.html /  301
+/cheat-table-5 /  301
+/cheat-table-5.html /  301
+/bookmarks /  301
+/bookmarks.html /  301
+/disclaimer /  301
+/disclaimer.html /  301
+/ar / 301
+/ar/* / 301
