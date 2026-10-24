@@ -43,11 +43,11 @@ const P = {
     btnNotes: "Search the notes", btnTraps: "Drill the exam traps", btnCheat: "Open the cheat tables",
     entryNotesTitle: "Search the notes",
     entryNotes: (T) => `Every note, fact and term for all ${T.lessons} task statements in one searchable list, for when you need to look something up.`,
-    cNotes: (n) => `${n} notes`, cFacts: (n) => `${n} facts`, cTerms: (n) => `${n} terms`, cTraps: (n) => `${n} traps`, cTables: "5 tables",
+    cNotes: (n) => `${n} notes`, cFacts: (n) => `${n} facts`, cTerms: (n) => `${n} terms`, cTraps: (n) => `${n} traps`, cTables: "5 tables", cDecide: (n) => `${n} decisions`,
     entryTrapsTitle: "Exam traps",
-    entryTraps: "Beliefs that sound right but aren't, with why each one fails and what's actually true. Quiz mode hides the answers.",
+    entryTraps: "For extra practice once you know the decision tables: beliefs that sound right but aren't, with why each one fails and what's actually true. Quiz mode hides the answers.",
     entryCheatTitle: "Cheat tables",
-    entryCheat: "Start here. One page per domain: key points, a decision table, comparison tables, key facts and terms, and a plain-language summary of every task statement.",
+    entryCheat: "Start here. One page per domain: key points, a decision table grouped by task statement, comparison tables, key facts and terms, and a plain-language summary of every task statement.",
     cSummaries: (n) => `${n} summaries`,
     domainsH: "Domains",
     th: ["Domain", "Exam weight", "Task statements", "Notes", "Traps", "Open"],
@@ -61,7 +61,7 @@ const P = {
     notesTitle: "Search the notes",
     notesLead: `Every key concept, note, fact and term in one list. Type a word to search, or narrow it down by domain and row type.`,
     notesSearch: "Search notes (press /)",
-    notesNote: `This page is for looking something up. To study, use the <a href="cheat-tables.html">cheat tables</a>: each one has the summaries, decision table and exam traps for its domain on one page.`,
+    notesNote: `This page is for looking something up. To study, use the <a href="cheat-tables.html">cheat tables</a>: each one has the summaries and the decision table for its domain on one page.`,
     tryH: "Try",
     filters: "Filters", sections: "Sections", sectionsTitle: "Jump to a task statement",
     showH: "Show", tNotes: "Notes", tFacts: "Facts", tTerms: "Terms",
@@ -85,14 +85,14 @@ const P = {
     cheatDesc: "Five one-page CCAR-F cheat tables, one per exam domain, with summaries, decision tables, comparison tables, and key facts and terms.",
     cheatPageTitle: (d) => `Cheat Table ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `One-page CCAR-F cheat table for Domain ${d.n}, ${d.title} (${d.weight}% of the exam), with a summary of every task statement.`,
-    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", trapsOf: (c) => `Traps for ${c}`, trapsAll: (n) => `All ${n} traps in this domain`,
+    openTable: "Open the table", sumDomain: "Summary", jumpLabel: "On this page", dcOf: (c) => `Decision table for ${c}`, dcPicks: "Show rows for",
     compareH: "Comparison tables", compareJump: "Comparisons", nTables: (n) => `${n} tables`, nRows: (n) => `${n} rows`, decidePop: "Drill in a pop-up",
     factsH: "Key facts & terms", factsJump: "Facts & terms", factsCol: "Key facts", termsCol: "Terms",
     factsLead: "The exact names, values and definitions behind each task statement, for when you want more detail. The switch remembers your choice, and the translate button on each box switches it to Arabic.",
     ftCount: (f, t) => `${f} facts · ${t} terms`, ftShow: "Show",
     decideH: "Decision table", decideJump: "Decision table", decideTh: ["Symptom in the question", "Usual answer"],
-    decideLead: "The usual fix for each symptom a question describes. Use it to check your reasoning, not as a keyword lookup: the details of the scenario decide.",
-    domNotes: (n) => `Domain ${n} notes`, domTraps: (n) => `Domain ${n} traps`,
+    decideLead: "The usual fix for each symptom a question describes, grouped by task statement: pick one to drill it on its own. Use it to check your reasoning, not as a keyword lookup: the details of the scenario decide.",
+    domNotes: (n) => `Domain ${n} notes`,
     discTitle: "Disclaimer",
     discDesc: "The CCAR-F Field Guide is an unofficial study aid, not affiliated with Anthropic. What it covers, accuracy notes and limits.",
     discLead: "This is a community study aid, not an official Anthropic product. Here's what it is and what its limits are.",
@@ -131,11 +131,11 @@ const P = {
     btnNotes: "دوّر في الملاحظات", btnTraps: "ذاكر المطبات", btnCheat: "افتح جداول المراجعة",
     entryNotesTitle: "دوّر في الملاحظات",
     entryNotes: (T) => `كل الملاحظات والمعلومات والمصطلحات بتاعة الـ ${T.lessons} مهمة في قايمة واحدة تقدر تدوّر فيها، لما تحتاج تدوّر على حاجة معيّنة.`,
-    cNotes: (n) => `${n} ملاحظة`, cFacts: (n) => `${n} معلومة`, cTerms: (n) => `${n} مصطلح`, cTraps: (n) => `${n} مطب`, cTables: "5 جداول",
+    cNotes: (n) => `${n} ملاحظة`, cFacts: (n) => `${n} معلومة`, cTerms: (n) => `${n} مصطلح`, cTraps: (n) => `${n} مطب`, cTables: "5 جداول", cDecide: (n) => `${n} قرار`,
     entryTrapsTitle: "مطبات الامتحان",
-    entryTraps: "أفكار شكلها صح بس هي غلط، وليه غلط، وإيه الصح فعلاً. وضع الاختبار بيخبّي الإجابات لحد ما تجاوب بنفسك.",
+    entryTraps: "تمرين زيادة بعد ما تذاكر جداول القرارات: أفكار شكلها صح بس هي غلط، وليه غلط، وإيه الصح فعلاً. وضع الاختبار بيخبّي الإجابات لحد ما تجاوب بنفسك.",
     entryCheatTitle: "جداول المراجعة",
-    entryCheat: "ابدأ من هنا. صفحة لكل مجال: أهم النقط، وجدول قرارات، وجداول المقارنة، والمعلومات والمصطلحات المهمة، وملخص بكلام بسيط لكل مهمة.",
+    entryCheat: "ابدأ من هنا. صفحة لكل مجال: أهم النقط، وجدول قرارات متقسم على المهام، وجداول المقارنة، والمعلومات والمصطلحات المهمة، وملخص بكلام بسيط لكل مهمة.",
     cSummaries: (n) => `${n} ملخص`,
     domainsH: "المجالات",
     th: ["المجال", "الوزن في الامتحان", "المهام", "الملاحظات", "المطبات", "افتح"],
@@ -149,7 +149,7 @@ const P = {
     notesTitle: "دوّر في الملاحظات",
     notesLead: `كل الأفكار الأساسية والملاحظات والمعلومات والمصطلحات في قايمة واحدة. اكتب كلمة عشان تدوّر، أو ضيّق النتايج بالمجال ونوع الصف.`,
     notesSearch: "دوّر في الملاحظات (اضغط /)",
-    notesNote: `الصفحة دي عشان تدوّر على معلومة معيّنة. لو بتذاكر، استخدم <a href="cheat-tables.html">جداول المراجعة</a>: كل جدول فيه الملخصات وجدول القرارات ومطبات الامتحان بتاعة المجال بتاعه في صفحة واحدة.`,
+    notesNote: `الصفحة دي عشان تدوّر على معلومة معيّنة. لو بتذاكر، استخدم <a href="cheat-tables.html">جداول المراجعة</a>: كل جدول فيه الملخصات وجدول القرارات بتوع المجال بتاعه في صفحة واحدة.`,
     tryH: "جرّب",
     filters: "فلاتر", sections: "الأقسام", sectionsTitle: "روح لمهمة معيّنة",
     showH: "اعرض", tNotes: "الملاحظات", tFacts: "المعلومات", tTerms: "المصطلحات",
@@ -173,14 +173,14 @@ const P = {
     cheatDesc: "5 جداول مراجعة لامتحان CCAR-F، جدول لكل مجال، ومعاهم ملخصات وجداول قرارات وجداول مقارنة ومعلومات ومصطلحات مهمة.",
     cheatPageTitle: (d) => `جدول المراجعة ${d.n}: ${d.title}`,
     cheatPageDesc: (d) => `جدول مراجعة في صفحة واحدة للمجال ${d.n}، ${d.title} (${d.weight}% من الامتحان)، ومعاه ملخص لكل مهمة.`,
-    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", trapsOf: (c) => `مطبات ${c}`, trapsAll: (n) => `كل مطبات المجال (${n})`,
+    openTable: "افتح الجدول", sumDomain: "الملخص", jumpLabel: "في الصفحة دي", dcOf: (c) => `جدول القرارات بتاع ${c}`, dcPicks: "اعرض صفوف",
     compareH: "جداول المقارنة", compareJump: "المقارنات", nTables: (n) => `${n} جداول`, nRows: (n) => `${n} صف`, decidePop: "ذاكره في نافذة",
     factsH: "معلومات ومصطلحات مهمة", factsJump: "المعلومات والمصطلحات", factsCol: "معلومات مهمة", termsCol: "مصطلحات",
     factsLead: "الأسامي والأرقام والتعريفات بالظبط لكل مهمة، لما تحب تعرف تفاصيل أكتر. الزرار بيفتكر اختيارك، وزرار الترجمة اللي في كل مربع بيعرضه بالإنجليزي.",
     ftCount: (f, t) => `${f} معلومة · ${t} مصطلح`, ftShow: "اعرض",
     decideH: "جدول القرارات", decideJump: "جدول القرارات", decideTh: ["اللي في السؤال", "الإجابة المعتادة"],
-    decideLead: "الحل المعتاد لكل عرَض بيوصفه السؤال. استخدمه عشان تراجع تفكيرك، مش عشان تطابق كلمات: تفاصيل السيناريو هي اللي بتحدد.",
-    domNotes: (n) => `ملاحظات المجال ${n}`, domTraps: (n) => `مطبات المجال ${n}`,
+    decideLead: "الحل المعتاد لكل عرَض بيوصفه السؤال، متقسم على المهام: اختار مهمة عشان تذاكرها لوحدها. استخدمه عشان تراجع تفكيرك، مش عشان تطابق كلمات: تفاصيل السيناريو هي اللي بتحدد.",
+    domNotes: (n) => `ملاحظات المجال ${n}`,
     discTitle: "تنويه",
     discDesc: "دليل CCAR-F Field Guide مجهود مذاكرة مش رسمي ومالوش علاقة بـ Anthropic. بيغطي إيه، وملاحظات عن الدقة، وحدوده.",
     discLead: "ده مجهود مذاكرة من جروب، مش منتج رسمي من Anthropic. هنا هتعرف هو إيه وحدوده إيه.",
@@ -228,11 +228,18 @@ const totals = (data) => Object.fromEntries(["lessons", "notes", "traps", "facts
 const id = (prefix, code) => `${prefix}-${code.replace(".", "-")}`;
 const range = (d) => `${d.lessons[0].code}–${d.lessons[d.lessons.length - 1].code}`;
 
-function site(lang, data, altData, SHEETS) {
+function site(lang, data, altData, SHEETS, ALT_SHEETS) {
   const S = P[lang];
   const altLang = lang === "en" ? "ar" : "en";
   const A = P[altLang];
   const T = totals(data);
+  // Decision table rows per task statement ({ "1.1": [[symptom, answer], …] }); both languages must line up row for row.
+  const decideOf = (n) => SHEETS[n].decide || {};
+  for (const d of data)
+    for (const [code, rows] of Object.entries(decideOf(d.n)))
+      if ((ALT_SHEETS[d.n].decide?.[code] || []).length !== rows.length) throw new Error(`Decision table ${code}: the English and Arabic rows don't line up`);
+  const nDecide = (n) => sum(Object.values(decideOf(n)), (rows) => rows.length);
+  T.decide = sum(data, (d) => nDecide(d.n));
   // Each table cell carries both languages; the row's translate button swaps which one is shown.
   const dual = (html, altHtml) =>
     `<div class="tx">${html}</div><div class="tx" lang="${altLang}" dir="${altLang === "ar" ? "rtl" : "ltr"}" hidden>${altHtml}</div>`;
@@ -281,7 +288,7 @@ function site(lang, data, altData, SHEETS) {
     </div>
   </section>
   <div class="entry-grid">
-    <a class="Box entry entry-main" href="cheat-tables.html"><h2>${icon("table")}${S.entryCheatTitle}</h2><p>${S.entryCheat}</p><div class="stats"><span class="Counter">${S.cTables}</span><span class="Counter">${S.cSummaries(T.lessons)}</span><span class="Counter">${S.cFacts(T.facts)}</span><span class="Counter">${S.cTerms(T.terms)}</span></div></a>
+    <a class="Box entry entry-main" href="cheat-tables.html"><h2>${icon("table")}${S.entryCheatTitle}</h2><p>${S.entryCheat}</p><div class="stats"><span class="Counter">${S.cTables}</span><span class="Counter">${S.cDecide(T.decide)}</span><span class="Counter">${S.cSummaries(T.lessons)}</span><span class="Counter">${S.cFacts(T.facts)}</span><span class="Counter">${S.cTerms(T.terms)}</span></div></a>
     <a class="Box entry" href="traps.html"><h2>${icon("alert")}${S.entryTrapsTitle}</h2><p>${S.entryTraps}</p><div class="stats"><span class="Counter">${S.cTraps(T.traps)}</span></div></a>
     <a class="Box entry" href="notes.html"><h2>${icon("search")}${S.entryNotesTitle}</h2><p>${S.entryNotes(T)}</p><div class="stats"><span class="Counter">${S.cNotes(T.notes)}</span><span class="Counter">${S.cFacts(T.facts)}</span><span class="Counter">${S.cTerms(T.terms)}</span></div></a>
   </div>
@@ -446,13 +453,12 @@ ${tasks}
   });
 
   /* ------------------------------------------------------------ Traps */
-  // One task's traps table and exam tips, shared by the traps page and the traps dialog on each cheat table.
-  // A bookmarked trap links back to that dialog (#tr-2-3 on the domain's cheat table).
+  // One task's traps table and exam tips. Traps live on this page only (for practice); the cheat tables don't link to them.
   const trapBlock = (d, l, a) => {
     const r = l.traps
       .map((t, i) => {
         const at = a.traps[i];
-        return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0" ${bmAttrs(`trap:${l.code}:${i}`, "trap", `cheat-table-${d.n}.html#${id("tr", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
+        return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0" ${bmAttrs(`trap:${l.code}:${i}`, "trap", `traps.html#${id("t", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
       })
       .join("");
     const tips = (l.exam_tips || []).length
@@ -498,27 +504,53 @@ ${tasks}
   });
 
   /* ----------------------------------------------------- Cheat tables */
-  // A task's traps, as a small pill with their count. On a cheat table it opens the traps dialog there
-  // (data-traps; the traps page is the no-JS fallback); on the index it opens that dialog on the domain's table.
-  const trapPill = (l, here) =>
-    `<a class="trap-pill" href="${here ? `traps.html#${id("t", l.code)}" data-traps="${l.code}` : `cheat-table-${l.code.split(".")[0]}.html#${id("tr", l.code)}`}" title="${esc(S.trapsOf(l.code))}" aria-label="${esc(S.trapsOf(l.code))}">${icon("alert")}<span>${l.traps.length}</span></a>`;
-  // The traps dialog of one cheat table: every task's traps, shown all together (data-traps="all") or one task at a time.
-  const trapsDialog = (d, di) => `
-<dialog class="sum-dialog traps-dialog" id="traps-dialog" aria-labelledby="tr-title" ${trxAttrs} data-label="${esc(S.domainLabel(d.n))} · ${esc(S.trapsTitle)}" data-all-title="${esc(S.trapsTitle)} · ${S.nTraps(stats(d).traps)}">
+  // A task's decision table rows, as a small pill with their count. It opens the domain's decision table dialog
+  // on that task (data-decide-pop), on a cheat table and on the index; the href is the no-JS fallback.
+  const dcPill = (l) => {
+    const n = (decideOf(l.code.split(".")[0])[l.code] || []).length;
+    if (!n) return "";
+    const attrs = `class="dc-pill" title="${esc(S.dcOf(l.code))}" aria-label="${esc(S.dcOf(l.code))}"`;
+    return `<a ${attrs} href="cheat-table-${l.code.split(".")[0]}.html#${id("dc", l.code)}" data-decide-pop="${l.code}">${icon("target")}<span>${n}</span></a>`;
+  };
+  // A heading that carries both languages; the translate button of its box swaps them.
+  const dualInline = (html, altHtml) =>
+    `<span class="tx">${html}</span><span class="tx" lang="${altLang}" dir="${altLang === "ar" ? "rtl" : "ltr"}" hidden>${altHtml}</span>`;
+  // A domain's decision table, grouped by task statement (one <tbody data-dc> each): on its cheat table, and in its
+  // own dialog for drilling (data-dc-dialog), which the index holds too. Each copy has the quiz switch (data-dq:
+  // each usual answer stays hidden until tapped) and chips that show one task's rows (data-dc-pick).
+  // data-decide-pop="d1" opens the dialog on all rows, "1.3" on one task; a bookmarked row links to #dc-1-3.
+  const decideFor = (d, di) => {
+    const ad = altData[di];
+    const groups = d.lessons
+      .map((l, li) => ({ l, a: ad.lessons[li], rows: decideOf(d.n)[l.code] || [], alt: ALT_SHEETS[d.n].decide?.[l.code] || [] }))
+      .filter((g) => g.rows.length);
+    const n = nDecide(d.n);
+    const pick = (key, label, k) => `<button type="button" data-dc-pick="${key}" aria-pressed="${key === "all"}">${label} <span class="Counter">${k}</span></button>`;
+    const table = () => `<div class="dc-tools"><label class="toggle dq-toggle"><input type="checkbox" data-dq> ${S.quiz}</label>
+  <div class="seg dc-picks" role="group" aria-label="${esc(S.dcPicks)}">${pick("all", S.all, n)}${groups.map((g) => pick(g.l.code, g.l.code, g.rows.length)).join("")}</div></div>
+  <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th>${trxTh}</tr></thead>${groups
+    .map(({ l, a, rows, alt }) => `<tbody data-dc="${l.code}"><tr class="dc-h"><th colspan="3"><span class="code">${esc(l.code)}</span> ${md(l.task)}</th></tr>${rows
+      .map(([q, ans], i) => `<tr tabindex="0" ${bmAttrs(`decide:${l.code}:${i}`, "decide", `cheat-table-${d.n}.html#${id("dc", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${a.task}`)}><td class="q">${dual(md(q), md(alt[i][0]))}</td><td class="a"><span class="ans">${dualInline(md(ans), md(alt[i][1]))}</span></td>${trxCell}</tr>`)
+      .join("")}</tbody>`)
+    .join("")}</table></div></div>`;
+    const dialog = n
+      ? `
+<dialog class="sum-dialog decide-dialog" id="dc-dialog-${d.n}" aria-labelledby="dc-title-${d.n}" style="--c:${d.color}" data-dc-dialog="${d.n}" data-dq-host ${trxAttrs}>
   <div class="sum-inner">
     <div class="sum-head">
-      <div class="sum-titles"><span class="Label" id="tr-label"></span><h2 id="tr-title"></h2></div>
-      <div class="sum-tools"><button type="button" class="sum-close" data-tr-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
+      <div class="sum-titles"><span class="Label">${S.domainLabel(d.n)}</span><h2 id="dc-title-${d.n}">${S.decideH} · ${S.nRows(n)}</h2></div>
+      <div class="sum-tools"><button type="button" class="sum-close" data-dc-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
     </div>
-    <div class="sum-body tr-body" id="tr-body">
-      <label class="toggle tr-quiz"><input type="checkbox" data-tr-quiz> ${S.quiz}</label>
-      ${d.lessons
-        .map((l, li) => `<section class="tr-sec" data-code="${l.code}" data-title="${esc(md(l.task))}"><h3 class="tr-h"><span class="sum-code">${esc(l.code)}</span> ${md(l.task)}</h3>${trapBlock(d, l, altData[di].lessons[li])}</section>`)
-        .join("")}
-      <button type="button" class="btn btn-sm tr-all" data-traps="all">${icon("alert")}${S.trapsAll(stats(d).traps)}</button>
+    <div class="sum-body dc-body">
+      <p class="section-lead">${S.decideLead}</p>
+      ${table()}
     </div>
   </div>
-</dialog>`;
+</dialog>`
+      : "";
+    return { n, table, dialog };
+  };
+  const decides = data.map((d, di) => decideFor(d, di));
   write("cheat-tables.html", {
     title: S.cheatTitle,
     description: S.cheatDesc,
@@ -537,23 +569,21 @@ ${tasks}
     <div class="Box-header"><span class="Label">${S.domainLabel(d.n)}</span><h2>${esc(d.title)}</h2></div>
   </a>
   <div class="Box-body"><ol>${d.lessons
-    .map((l) => `<li><a class="cs-task" href="cheat-table-${d.n}.html${hasCard(l.code) ? `#${id("c", l.code)}` : ""}"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a>${trapPill(l)}</li>`)
+    .map((l) => `<li><a class="cs-task" href="cheat-table-${d.n}.html${hasCard(l.code) ? `#${id("c", l.code)}` : ""}"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a>${dcPill(l)}</li>`)
     .join("")}</ol></div>
   <div class="cs-thumb-foot">
     <a class="btn btn-sm" href="cheat-table-${d.n}.html">${icon("table")}${S.openTable}</a>
     <a class="btn btn-sm" href="cheat-table-${d.n}.html#summary" data-sum="d${d.n}">${icon("book")}${S.sumDomain}</a>
-    <a class="btn btn-sm btn-traps" href="cheat-table-${d.n}.html#traps">${icon("alert")}${S.cTraps(s.traps)}</a>
+    <a class="btn btn-sm btn-decide" href="cheat-table-${d.n}.html#decisions" data-decide-pop="d${d.n}">${icon("target")}${S.decideH}<span class="Counter">${nDecide(d.n)}</span></a>
     <span class="stats"><span class="Counter">${S.cFacts(s.facts)}</span><span class="Counter">${S.cTerms(s.terms)}</span></span>
   </div>
 </div>`;
     })
     .join("")}</div>
   ${sumDialog("c", data, "cheat-table-{n}.html")}
+  ${decides.map((x) => x.dialog).join("")}
 </div>`,
   });
-  // A heading that carries both languages; the translate button of its box swaps them.
-  const dualInline = (html, altHtml) =>
-    `<span class="tx">${html}</span><span class="tx" lang="${altLang}" dir="${altLang === "ar" ? "rtl" : "ltr"}" hidden>${altHtml}</span>`;
   // Key facts and terms of one task statement, in both languages.
   const ftItems = (xs = [], axs = [], k, v) =>
     `<ul class="ft-items">${xs.map((x, i) => `<li>${dual(`<b>${md(x[k])}</b> ${md(x[v])}`, `<b>${md(axs[i][k])}</b> ${md(axs[i][v])}`)}</li>`).join("")}</ul>`;
@@ -575,12 +605,12 @@ ${tasks}
   data.forEach((d, di) => {
     const sh = SHEETS[d.n];
     const ad = altData[di];
-    // Each task card's summary button is followed by its traps pill.
+    // Each task card's summary button is followed by its decision table pill.
     const cards = sh.cards
       .join("\n")
       .replace(/(<button type="button" class="sum-mini" data-sum="(\d\.\d)"[^>]*>[\s\S]*?<\/button>)/g, (m, btn, code) => {
         const l = d.lessons.find((x) => x.code === code);
-        return l ? btn + trapPill(l, true) : btn;
+        return l ? btn + dcPill(l) : btn;
       });
     const cardId = (l) => `c-${l.code.replace(".", "-")}`;
     const carded = d.lessons.filter((l) => cards.includes(`id="${cardId(l)}"`));
@@ -595,32 +625,12 @@ ${tasks}
           .join("")}</tbody></table></div></div></div>`
       )
       .join("");
-    // The decision table, on the page and again in its own dialog for drilling. Both have the quiz switch
-    // (data-dq): each usual answer stays hidden until tapped. A bookmarked row opens the dialog (#decisions).
-    const nDecide = (sh.decide || []).length;
-    const decideTable = () => `<label class="toggle dq-toggle"><input type="checkbox" data-dq> ${S.quiz}</label>
-  <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th>${trxTh}</tr></thead><tbody>${sh.decide
-    .map(([q, a], i) => `<tr tabindex="0" ${bmAttrs(`decide:${d.n}:${i}`, "decide", `cheat-table-${d.n}.html#decisions`, `${S.domainLabel(d.n)} · ${S.decideH}`, `${A.domainLabel(d.n)} · ${A.decideH}`)}><td class="q">${md(q)}</td><td class="a"><div class="ans">${md(a)}</div></td><td class="trx"><div class="row-acts">${bmBtn}</div></td></tr>`)
-    .join("")}</tbody></table></div></div>`;
-    const decidePop = (cls, label) => `<button type="button" class="${cls}" data-decide-pop>${icon("target")}<span>${label}</span></button>`;
-    const decide = nDecide
-      ? `<section class="section" id="decide" data-dq-host><div class="sec-head"><h2>${S.decideH}</h2>${decidePop("sum-btn", S.decidePop)}</div><p class="section-lead">${S.decideLead}</p>
+    // The decision table section; its dialog comes from decideFor too.
+    const { n: nDc, table: decideTable, dialog: decideDialog } = decides[di];
+    const decidePop = (cls, label) => `<button type="button" class="${cls}" data-decide-pop="d${d.n}">${icon("target")}<span>${label}</span></button>`;
+    const decide = nDc
+      ? `<section class="section" id="decide" data-dq-host ${trxAttrs}><div class="sec-head"><h2>${S.decideH}</h2>${decidePop("sum-btn", S.decidePop)}</div><p class="section-lead">${S.decideLead}</p>
   ${decideTable()}</section>`
-      : "";
-    const decideDialog = nDecide
-      ? `
-<dialog class="sum-dialog traps-dialog decide-dialog" id="decide-dialog" aria-labelledby="dc-title" data-dq-host>
-  <div class="sum-inner">
-    <div class="sum-head">
-      <div class="sum-titles"><span class="Label">${S.domainLabel(d.n)}</span><h2 id="dc-title">${S.decideH} · ${S.nRows(nDecide)}</h2></div>
-      <div class="sum-tools"><button type="button" class="sum-close" data-dc-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
-    </div>
-    <div class="sum-body tr-body">
-      <p class="section-lead">${S.decideLead}</p>
-      ${decideTable()}
-    </div>
-  </div>
-</dialog>`
       : "";
     const s = stats(d);
     write(`cheat-table-${d.n}.html`, {
@@ -628,14 +638,13 @@ ${tasks}
       description: S.cheatPageDesc(d),
       active: "cheat",
       body: `
-<div class="container" style="--c:${d.color}" data-sheet data-jump>
-  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span>${nDecide ? `<button type="button" class="btn btn-sm btn-decide" data-decide-pop>${icon("target")}${S.decideH}<span class="Counter">${nDecide}</span></button>` : ""}<a class="btn btn-sm btn-traps" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.domTraps(d.n)}<span class="Counter">${s.traps}</span></a><p>${esc(sh.sub)}</p>
+<div class="container" style="--c:${d.color}" data-sheet="${d.n}" data-jump>
+  <header class="sheet-head"><span class="Label">${S.domainLabel(d.n)}</span><h1>${esc(d.title)}</h1><span class="Label">${S.pctExam(d.weight)}</span>${nDc ? `<button type="button" class="btn btn-sm btn-decide" data-decide-pop="d${d.n}">${icon("target")}${S.decideH}<span class="Counter">${nDc}</span></button>` : ""}<p>${esc(sh.sub)}</p>
     <div class="sheet-nav">${sheetNav(d)}</div>
   </header>
   <nav class="jumpbar" aria-label="${esc(S.jumpLabel)}"><div class="jumpbar-in">
     ${sumBtn(`d${d.n}`, S.sumDomain).replace('class="sum-btn"', 'class="sum-btn jump-sum"')}
-    ${jumpTasks}${decide ? `<a class="jump-dc" href="#decide" data-decide-pop>${icon("target")}${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
-    <a class="jump-out" href="traps.html#d${d.n}" data-traps="all">${icon("alert")}${S.linkTraps}</a>
+    ${jumpTasks}${decide ? `<a class="jump-dc" href="#decide" data-decide-pop="d${d.n}">${icon("target")}${S.decideJump}</a>` : ""}${compare ? `<a href="#compare">${S.compareJump}</a>` : ""}<a href="#facts">${S.factsJump}</a>
   </div></nav>
   <div class="cs-grid">${cards}</div>
   ${decide}
@@ -644,10 +653,9 @@ ${tasks}
   <div class="ft-list">${facts}</div>`)}
   <div class="sheet-foot">
     <div class="sheet-nav">${sheetNav(d)}</div>
-    <div class="links"><a href="notes.html#d${d.n}">${S.domNotes(d.n)}</a><a href="traps.html#d${d.n}">${S.domTraps(d.n)}</a></div>
+    <div class="links"><a href="notes.html#d${d.n}">${S.domNotes(d.n)}</a></div>
   </div>
   ${sumDialog("c", [d])}
-  ${trapsDialog(d, di)}
   ${decideDialog}
 </div>`,
     });
@@ -708,8 +716,8 @@ writeFileSync(
 
 const DATA = Object.fromEntries(LANGS.map((lang) => [lang, dataFor(lang)]));
 for (const lang of LANGS) {
-  const T = site(lang, DATA[lang], DATA[lang === "en" ? "ar" : "en"], await sheetsFor(lang));
-  console.log(`${lang}: ${T.lessons} task statements, ${T.notes} notes, ${T.facts} facts, ${T.terms} terms, ${T.traps} traps.\n`);
+  const T = site(lang, DATA[lang], DATA[lang === "en" ? "ar" : "en"], await sheetsFor(lang), await sheetsFor(lang === "en" ? "ar" : "en"));
+  console.log(`${lang}: ${T.lessons} task statements, ${T.notes} notes, ${T.facts} facts, ${T.terms} terms, ${T.traps} traps, ${T.decide} decision table rows.\n`);
 }
 
 /* ---------------------------------------------------------------- Report + zip */

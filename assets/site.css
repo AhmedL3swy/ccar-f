@@ -379,20 +379,18 @@ table.traps td.whycol { color: var(--fg-muted); }
 .cs-thumb-foot .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-inline-start: auto; }
 .btn-sm { padding: 3px 10px; font-size: 13px; }
 .btn-sm svg { width: 14px; height: 14px; }
-/* Links to the exam traps: a domain's (button) or one task's (pill with the trap count) */
-.btn-traps svg { color: var(--danger); }
-.btn-traps .Counter { margin-inline-start: 2px; }
-.trap-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 9px; border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius: 2em; background: color-mix(in srgb, var(--danger) 6%, var(--bg)); color: var(--danger); font: 600 12px/1 var(--mono); white-space: nowrap; }
-.trap-pill:hover { text-decoration: none; background: color-mix(in srgb, var(--danger) 14%, var(--bg)); }
-.trap-pill svg { width: 13px; height: 13px; }
+/* One task's decision table rows: a pill with their count that opens the decision table on that task */
+.dc-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 9px; border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); border-radius: 2em; background: color-mix(in srgb, var(--c) 6%, var(--bg)); color: var(--c); font: 600 12px/1 var(--mono); white-space: nowrap; }
+.dc-pill:hover { text-decoration: none; background: color-mix(in srgb, var(--c) 14%, var(--bg)); }
+.dc-pill svg { width: 13px; height: 13px; }
 .cs-thumb > .Box-body { flex: 1; }
 .cs-thumb ol { list-style: none; display: grid; gap: 4px; font-size: 13.5px; color: var(--fg-muted); }
-/* Each task opens its card on the cheat table; the pill beside it opens its traps. */
+/* Each task opens its card on the cheat table; the pill beside it opens its decision table rows. */
 .cs-thumb li { display: flex; align-items: flex-start; gap: 8px; }
 .cs-task { flex: 1; min-width: 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); color: var(--fg-muted); }
 .cs-task:hover { color: var(--fg); text-decoration: none; }
 .cs-thumb li b { font-family: var(--mono); color: var(--c); font-weight: 600; }
-.cs-thumb .trap-pill { height: 22px; padding: 0 7px; margin-top: -1px; }
+.cs-thumb .dc-pill { height: 22px; padding: 0 7px; margin-top: -1px; }
 
 .sheet-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 28px 16px; border-bottom: 1px solid var(--border); }
 .sheet-head h1 { font-size: 28px; flex: 1 1 400px; }
@@ -408,7 +406,7 @@ table.traps td.whycol { color: var(--fg-muted); }
 .cs-h h2 { font-size: 15px; }
 .cs-h p { grid-column: 2; font-size: 13px; color: var(--fg-muted); }
 .sum-mini { grid-column: 3; grid-row: 1; align-self: center; display: grid; place-items: center; width: 28px; height: 28px; margin-block: -4px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg); color: var(--fg-muted); cursor: pointer; }
-.cs-h .trap-pill { grid-column: 4; grid-row: 1; align-self: center; margin-block: -4px; } /* the task's traps, beside its summary */
+.cs-h .dc-pill { grid-column: 4; grid-row: 1; align-self: center; margin-block: -4px; } /* the task's decisions, beside its summary */
 .sum-mini:hover { color: var(--c); border-color: var(--c); text-decoration: none; }
 .sum-mini svg { width: 14px; height: 14px; }
 
@@ -423,8 +421,6 @@ table.traps td.whycol { color: var(--fg-muted); }
 .jumpbar a[aria-current] { color: var(--c); border-color: color-mix(in srgb, var(--c) 60%, transparent); background: color-mix(in srgb, var(--c) 10%, transparent); }
 .jumpbar .jump-sum { padding: 2px 12px; font-size: 13px; font-weight: 600; color: var(--fg); border-color: color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 12%, var(--btn-bg)); }
 .jumpbar .jump-sum svg { color: var(--c); }
-.jumpbar .jump-out { display: inline-flex; align-items: center; gap: 5px; }
-.jumpbar .jump-out svg { width: 14px; height: 14px; color: var(--danger); }
 .jumpbar .jump-dom { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Decision table: symptom → usual answer */
@@ -756,17 +752,10 @@ bdi.iso { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 .bm-filter button[aria-pressed="false"] { text-decoration: none; opacity: 1; }
 .bm-filter button[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
-/* ---------- Traps dialog on each cheat table: the summary dialog's frame, wide enough for the 3-column table ---------- */
-.traps-dialog { width: min(1040px, calc(100% - 32px)); }
-.tr-body { gap: 16px; font-size: 14.5px; line-height: 1.6; }
-.tr-sec { display: grid; gap: 10px; min-width: 0; }
-.tr-sec[hidden], .tr-all[hidden] { display: none; }
-.tr-sec + .tr-sec { padding-top: 14px; border-top: 1px solid var(--border-muted); }
-.tr-h { font-size: 15px; }
-.traps-dialog.one .tr-h { display: none; }
-.tr-all { justify-self: start; }
-.tr-all svg { color: var(--danger); }
-@media (max-width: 560px) { .traps-dialog { width: 100%; } }
+/* ---------- Decision table dialog on each cheat table: the summary dialog's frame, wide enough for the table ---------- */
+.decide-dialog { width: min(1040px, calc(100% - 32px)); }
+.dc-body { gap: 16px; font-size: 14.5px; line-height: 1.6; }
+@media (max-width: 560px) { .decide-dialog { width: 100%; } }
 
 /* ---------- Search page: "for studying, use the cheat tables" ---------- */
 .pagehead p.study-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; color: var(--fg); font-size: 14.5px; }
@@ -779,8 +768,22 @@ bdi.iso { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 .btn-decide .Counter { margin-inline-start: 2px; }
 .jumpbar .jump-dc { display: inline-flex; align-items: center; gap: 5px; }
 .jumpbar .jump-dc svg { width: 14px; height: 14px; color: var(--c); }
-.dq-toggle { margin-bottom: 10px; }
-.quiz table.decide tbody tr { cursor: pointer; }
+/* Quiz switch and task chips above the table; each task statement's rows sit under a heading row (tbody[data-dc]) */
+.dc-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 12px; }
+.dc-picks button { font-family: var(--mono); }
+.dc-picks button[data-dc-pick="all"] { font-family: var(--font); }
+.dc-picks button[aria-pressed="false"] { text-decoration: none; opacity: 1; }
+.dc-picks button[aria-pressed="true"] { color: var(--c); border-color: color-mix(in srgb, var(--c) 60%, transparent); background: color-mix(in srgb, var(--c) 10%, transparent); }
+table.decide tbody[hidden] { display: none !important; }
+table.gh.decide tr.dc-h th { padding-block: 7px; background: var(--bg-subtle); font-size: 13.5px; font-weight: 600; color: var(--fg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border-muted); }
+table.decide tr.dc-h .code { font-family: var(--mono); color: var(--c); margin-inline-end: 6px; }
+table.decide td.trx .row-acts { flex-direction: row; } /* side by side: a long table stays compact */
+@media (max-width: 700px) {
+  table.stack.decide tr.dc-h { display: block; padding: 0; }
+  table.stack.decide tr.dc-h th { display: block; padding: 8px 14px; }
+  table.stack.decide tbody:first-of-type tr.dc-h th { border-top: 0; }
+}
+.quiz table.decide tbody tr:not(.dc-h) { cursor: pointer; }
 .quiz table.decide td.a { position: relative; }
 .quiz table.decide td.a:not(.revealed) > .ans { visibility: hidden; }
 .quiz table.decide td.a:not(.revealed)::after {
@@ -796,4 +799,5 @@ bdi.iso { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 }
 table.decide td.a .ans { display: inline; } /* stays on the line of the phone layout's "→" */
 .decide-dialog .section-lead { margin: 0; }
-.decide-dialog .dq-toggle { margin-bottom: 0; }
+.decide-dialog .dc-tools { margin-bottom: 0; }
+@media print { .dc-tools, .dc-pill { display: none !important; } table.decide tbody[hidden] { display: table-row-group !important; } }
