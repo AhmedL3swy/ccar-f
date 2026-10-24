@@ -751,6 +751,7 @@ ${tasks}
   // row folds its task rows away (data-plan-fold); which domains are folded is remembered too.
   // Beside the first three checkboxes, a button (data-pop="1.3:dc") opens that step for that task in the study
   // pop-up, whose content site.js loads from assets/pop/ when it opens; its tabs switch between the steps.
+  // "Mark this step done" sits in the footer between the previous and next arrows, so the tab row stays one line on phones.
   const planSteps = ["sum", "dc", "traps", "q"];
   const planIcons = { sum: "book", dc: "target", traps: "alert" };
   // The 90 open buttons point at one copy of each icon (an inline sprite) instead of repeating its paths.
@@ -769,10 +770,9 @@ ${tasks}
     </div>
     <div class="pop-bar">
       <div class="seg pop-tabs" role="group" aria-label="${esc(S.planTitle)}">${["sum", "dc", "traps"].map(popTab).join("")}</div>
-      <label class="toggle pop-done"><input type="checkbox" data-pop-done> ${S.popDone}</label>
     </div>
     <div class="sum-body pop-body" data-pop-body></div>
-    <div class="pop-foot"><button type="button" class="btn btn-sm" data-pop-go="-1">${icon("arrowLeft")}<span></span></button><button type="button" class="btn btn-sm" data-pop-go="1"><span></span>${icon("arrowRight")}</button></div>
+    <div class="pop-foot"><button type="button" class="btn btn-sm" data-pop-go="-1">${icon("arrowLeft")}<span></span></button><label class="toggle pop-done"><input type="checkbox" data-pop-done> <span>${S.popDone}</span></label><button type="button" class="btn btn-sm" data-pop-go="1"><span></span>${icon("arrowRight")}</button></div>
   </div>
 </dialog>`;
   const planGroups = data
