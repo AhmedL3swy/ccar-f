@@ -8,7 +8,7 @@ Everything is in this one static folder. The build packs it into `website.zip` f
 website/
 ├─ index.html  plan.html  notes.html  traps.html  cheat-tables.html  cheat-table-1…5.html  bookmarks.html  disclaimer.html  404.html
 ├─ ar/          Arabic (right-to-left) versions of every page, same file names
-├─ assets/      site.css, site.js (edit these), favicon.svg (generated)
+├─ assets/      site.css, site.js (edit these), favicon.svg and pop/ (generated: pop-up content loaded on demand)
 ├─ data/        content: d1.json … d5.json (English), d1.ar.json … d5.ar.json (Arabic)
 ├─ src/         build.mjs, lib.mjs, cheatsheets.mjs, cheatsheets.ar.mjs
 └─ README.md
@@ -37,7 +37,7 @@ The same folder works on any static host (Netlify Drop, Vercel, GitHub Pages, an
 |---|---|
 | `data/d1.json` … `d5.json` | English: domain `intro`; per task statement `task`, `summary` (the plain-language summary shown by the Summary buttons: one or two paragraphs, about 170 words), `key_concept` (with `short`), `notes` (each with a `short` version), `facts`, `terms`, `traps`, `exam_tips`; plus the domain's `comparisons`. |
 | `data/d1.ar.json` … `d5.ar.json` | The same in Egyptian Arabic, same structure. Code in `backticks` must match the English exactly. |
-| `src/cheatsheets.mjs`, `src/cheatsheets.ar.mjs` | The five cheat tables, English and Arabic: the cards, plus each domain's decision table (`decide`: rows of symptom → usual answer for each task statement code). The English and Arabic files must have the same rows in the same order for every task, since each row carries both languages; the build stops if they don't. |
+| `src/cheatsheets.mjs`, `src/cheatsheets.ar.mjs` | The five cheat tables, English and Arabic: the cards, plus each domain's decision table (`decide`: rows of symptom → usual answer for each task statement code; `recall`: question → answer rows covering that task's facts, terms, summary and comparison tables, shown after its decision rows under "Facts & terms"). The English and Arabic files must have the same rows in the same order for every task, since each row carries both languages; the build stops if they don't. |
 | `src/lib.mjs` | Page layout, icons, domain names and interface text (`STR`). |
 | `src/build.mjs` | Page text for both languages (`P`) and the page generator. |
 | `assets/site.css`, `assets/site.js` | Styles and behaviour. |
@@ -48,6 +48,6 @@ When you change content, change it in both the English and the Arabic file. Then
 node src/build.mjs
 ```
 
-The build rewrites only the `.html` pages (and `assets/favicon.svg`); it never touches `data/`, `src/`, `assets/site.css`, `assets/site.js` or this README. It also refreshes `website.zip` next to this folder. Don't edit the `.html` files by hand: the next build replaces them.
+The build rewrites only the `.html` pages, `assets/favicon.svg` and `assets/pop/` (each domain's summaries, decision table rows and traps, which the decision table and study plan pop-ups load only when opened); it never touches `data/`, `src/`, `assets/site.css`, `assets/site.js` or this README. It also refreshes `website.zip` next to this folder. Don't edit the `.html` files by hand: the next build replaces them.
 
 Text fields accept `` `backticks` `` for inline code. Summaries also accept `**bold**` for key terms (never inside code) and a blank line between paragraphs. Everything else is plain text.

@@ -778,12 +778,15 @@ table.decide tbody[hidden] { display: none !important; }
 table.gh.decide tr.dc-h th { padding-block: 7px; background: var(--bg-subtle); font-size: 13.5px; font-weight: 600; color: var(--fg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border-muted); }
 table.decide tr.dc-h .code { font-family: var(--mono); color: var(--c); margin-inline-end: 6px; }
 table.decide td.trx .row-acts { flex-direction: row; } /* side by side: a long table stays compact */
+/* After a task's scenario rows, its fact & term recall rows sit under a small sub-heading */
+table.gh.decide tr.dc-sub th { padding-block: 6px; background: color-mix(in srgb, var(--c) 5%, var(--bg)); font-size: 12.5px; font-weight: 600; color: var(--fg-muted); }
+table.decide tr.dc-sub svg { width: 13px; height: 13px; margin-inline-end: 6px; vertical-align: -2px; color: var(--c); }
 @media (max-width: 700px) {
-  table.stack.decide tr.dc-h { display: block; padding: 0; }
-  table.stack.decide tr.dc-h th { display: block; padding: 8px 14px; }
-  table.stack.decide tbody:first-of-type tr.dc-h th { border-top: 0; }
+  table.stack.decide tr.dc-h, table.stack.decide tr.dc-sub { display: block; padding: 0; }
+  table.stack.decide tr.dc-h th, table.stack.decide tr.dc-sub th { display: block; padding: 8px 14px; }
+  table.stack.decide tbody:first-of-type tr.dc-h th, table.stack.decide tbody:first-child tr.dc-sub:first-child th { border-top: 0; }
 }
-.quiz table.decide tbody tr:not(.dc-h) { cursor: pointer; }
+.quiz table.decide tbody tr[tabindex] { cursor: pointer; }
 .quiz table.decide td.a { position: relative; }
 .quiz table.decide td.a:not(.revealed) > .ans { visibility: hidden; }
 .quiz table.decide td.a:not(.revealed)::after {
@@ -809,7 +812,7 @@ table.decide td.a .ans { display: inline; } /* stays on the line of the phone la
 .plan-bar span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--success); transition: width .2s; }
 .plan-prog p { font-size: 14px; color: var(--fg-muted); }
 table.plan-table td { vertical-align: middle; }
-table.plan-table thead th.plan-step { min-width: 96px; white-space: normal; text-align: center; line-height: 1.35; }
+table.plan-table thead th.plan-step { min-width: 104px; white-space: normal; text-align: center; line-height: 1.35; }
 table.plan-table td.plan-step { width: 1%; padding: 0; text-align: center; }
 table.gh.plan-table tr.plan-dh th { padding: 0; background: var(--bg-subtle); border-top: 1px solid var(--border); }
 /* The heading row is one button that folds the domain's task rows away */
@@ -824,9 +827,14 @@ table.plan-table tbody.folded tr[data-plan-row] { display: none !important; }
 .plan-task a { display: grid; grid-template-columns: 34px minmax(0, 1fr); color: var(--fg); }
 .plan-task a:hover { text-decoration: none; color: var(--c); }
 .plan-task b { font-family: var(--mono); font-weight: 600; color: var(--c); }
-/* The whole cell is the tap target */
-.plan-cb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 44px; padding: 6px; cursor: pointer; }
+/* Each step: its checkbox (a generous tap target) and, beside it, the button that opens that step in the pop-up */
+.plan-cell { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.plan-cb { display: flex; align-items: center; justify-content: center; min-width: 40px; min-height: 44px; padding: 6px; cursor: pointer; }
 .plan-cb input { width: 18px; height: 18px; margin: 0; accent-color: var(--success); cursor: pointer; }
+.plan-open { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--btn-bg); color: var(--c); cursor: pointer; }
+.plan-open:hover { background: color-mix(in srgb, var(--c) 12%, var(--btn-bg)); border-color: color-mix(in srgb, var(--c) 55%, transparent); }
+.plan-open svg { width: 15px; height: 15px; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 table.plan-table tr.done td { background: color-mix(in srgb, var(--success) 7%, transparent); }
 table.plan-table tr.done .plan-task a { color: var(--fg-muted); }
 tbody.done .plan-dh .Counter { background: var(--success); color: #fff; }
@@ -837,9 +845,28 @@ tbody.done .plan-dh .Counter { background: var(--success); color: #fff; }
   table.plan-table tr[data-plan-row] { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 4px; padding: 10px 10px 6px; border-top: 1px solid var(--border-muted); }
   table.plan-table tr[data-plan-row] td { display: block; width: auto; padding: 0; border: 0; }
   table.plan-table td.plan-task { grid-column: 1 / -1; padding-inline: 4px; }
-  .plan-cb { justify-content: flex-start; padding: 4px 2px; }
-  .plan-cb::before { content: attr(data-label); font-size: 12px; line-height: 1.25; color: var(--fg-muted); text-align: center; white-space: nowrap; }
+  table.plan-table td.plan-step { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  table.plan-table td.plan-step::before { content: attr(data-label); font-size: 12px; line-height: 1.25; color: var(--fg-muted); text-align: center; white-space: nowrap; }
+  .plan-cb { min-width: 36px; padding: 4px; }
   table.plan-table tr.done { background: color-mix(in srgb, var(--success) 7%, transparent); }
   table.plan-table tr.done td, table.plan-table tbody tr:hover td { background: none; }
 }
-@media print { .plan-top .btn { display: none !important; } }
+@media print { .plan-top .btn, .plan-open { display: none !important; } }
+
+/* ---------- Study pop-up (plan page): one task statement's summary, decision rows or traps, in tabs ---------- */
+.pop-dialog { width: min(1040px, calc(100% - 32px)); }
+.pop-bar, .pop-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 16px; }
+.pop-bar { border-bottom: 1px solid var(--border-muted); }
+.pop-foot { border-top: 1px solid var(--border-muted); }
+.pop-tabs button svg { width: 14px; height: 14px; color: var(--c); }
+.pop-tabs button[aria-pressed="false"] { text-decoration: none; opacity: 1; }
+.pop-tabs button[aria-pressed="true"] { color: var(--fg); border-color: color-mix(in srgb, var(--c) 60%, transparent); background: color-mix(in srgb, var(--c) 12%, transparent); }
+.pop-done { font-weight: 500; }
+.pop-done input { accent-color: var(--success); }
+[dir="rtl"] .pop-foot svg { transform: scaleX(-1); }
+.pop-body { gap: 14px; font-size: 14.5px; line-height: 1.6; }
+.pop-sum { display: grid; gap: 10px; font-size: 15.5px; line-height: 1.7; }
+.pop-sum > .trx-btn { justify-self: end; }
+.pop-sum .tx p + p { margin-top: 10px; }
+.pop-note { color: var(--fg-muted); }
+@media (max-width: 560px) { .pop-dialog { width: 100%; } .pop-bar, .pop-foot { padding: 8px 12px; } }

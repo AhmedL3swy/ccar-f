@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   var root = document.documentElement;
+  var siteJs = (document.currentScript || {}).src || location.href; // for finding assets/pop/ from any page
   var $ = function (s, el) { return (el || document).querySelector(s); };
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
   var store = {
@@ -193,12 +194,43 @@
     if (defaultSum && location.hash === "#summary") openSum(defaultSum);
   }
 
+  /* ---------- Pop-up content, loaded on first use ----------
+     The decision table dialogs and the plan page's study pop-up carry no rows in the page: the build writes each
+     domain's content to assets/pop/<lang>-d<n>.js, which sets CCARF_POP[n]. A script tag (not fetch) loads it, so
+     it also works on pages opened straight from disk. #pop-text holds the labels for what's built here. */
+  var popText = {};
+  try { popText = JSON.parse(($("#pop-text") || {}).textContent || "{}"); } catch (e) { popText = {}; }
+  var popWaiting = {};
+  var loadPop = function (n, done) {
+    var got = window.CCARF_POP && window.CCARF_POP[n];
+    if (got) { done(got); return; }
+    if (popWaiting[n]) { popWaiting[n].push(done); return; }
+    popWaiting[n] = [done];
+    var s = document.createElement("script");
+    var finish = function () {
+      var list = popWaiting[n], data = (window.CCARF_POP && window.CCARF_POP[n]) || null;
+      delete popWaiting[n];
+      list.forEach(function (cb) { cb(data); });
+    };
+    s.onload = finish;
+    s.onerror = function () { s.parentNode.removeChild(s); finish(); }; // a later open tries again
+    s.src = new URL("pop/" + (root.getAttribute("lang") || "en") + "-d" + n + ".js", siteJs).href;
+    document.head.appendChild(s);
+  };
+  var popEsc = function (t) { var d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; };
+  var popNote = function (t) { return '<p class="pop-note">' + popEsc(t) + "</p>"; };
+  var quizSwitch = function () { return '<label class="toggle dq-toggle"><input type="checkbox" data-dq> ' + popEsc(popText.quiz) + "</label>"; };
+  var tableHead = function (cols) {
+    return "<thead><tr>" + cols.map(function (c) { return "<th>" + popEsc(c) + "</th>"; }).join("") + '<th class="trx"><span class="sr-only">' + popEsc(popText.trxTh) + "</span></th></tr></thead>";
+  };
+
   /* ---------- Decision table: quiz mode and task chips on the page and in its dialogs (cheat tables and index) ----------
      Quiz mode hides every usual answer until its row is tapped (or Enter on the row); the switch is shared by
-     every copy on the page, and remembered. The chips (data-dc-pick) show one task statement's rows or all of them.
-     Each domain has its own dialog (data-dc-dialog="1"; the index holds all five). data-decide-pop="d1" opens it on
-     all rows and "1.3" on one task; "#decisions" (a cheat table's own), "#dc-1" or "#dc-1-3" opens it on load. */
-  var dqHosts = $$("[data-dq-host]"), dcDlgs = $$("[data-dc-dialog]");
+     every copy on the page (and the plan page's pop-up), and remembered. The chips (data-dc-pick) show one task
+     statement's rows or all of them. Each domain has its own dialog (data-dc-dialog="1"; the index holds all five),
+     filled on first open. data-decide-pop="d1" opens it on all rows and "1.3" on one task; "#decisions" (a cheat
+     table's own), "#dc-1" or "#dc-1-3" opens it on load. */
+  var dcDlgs = $$("[data-dc-dialog]");
   // Traps left the cheat tables: an old link or bookmark to a cheat table's traps goes to the traps page instead.
   var sheetN = ($("[data-sheet]") || { getAttribute: function () { return ""; } }).getAttribute("data-sheet");
   var oldTraps = /^#(?:traps|tr-(\d-\d))$/.exec(location.hash);
@@ -216,33 +248,60 @@
     var b = e.target.closest("[data-dc-pick]");
     if (b) dcPick(b.closest("[data-dq-host]"), b.getAttribute("data-dc-pick"));
   });
-  if (dqHosts.length) {
-    var dqToggles = $$("[data-dq]");
-    var setDq = function (on) {
-      dqHosts.forEach(function (h) {
-        h.classList.toggle("quiz", on);
-        $$("td.a", h).forEach(function (c) { c.classList.remove("revealed"); });
-      });
-      dqToggles.forEach(function (t) { t.checked = on; });
-    };
-    dqToggles.forEach(function (t) {
-      t.addEventListener("change", function () { setDq(t.checked); store.set("ccarf-dq", t.checked ? "1" : "0"); });
+  var dqOn = store.get("ccarf-dq") === "1";
+  var setDq = function (on) {
+    dqOn = on;
+    $$("[data-dq-host]").forEach(function (h) {
+      h.classList.toggle("quiz", on);
+      $$("td.a, td.whycol, td.fixcol", h).forEach(function (c) { c.classList.remove("revealed"); });
     });
-    var dqRow = function (e) {
-      var row = e.target.closest("table.decide tbody tr:not(.dc-h)"), host = row && row.closest("[data-dq-host]");
-      return host && host.classList.contains("quiz") && !e.target.closest("button, a") ? row : null;
-    };
-    document.addEventListener("click", function (e) {
-      var row = dqRow(e);
-      if (row) $("td.a", row).classList.toggle("revealed");
+    $$("[data-dq]").forEach(function (t) { t.checked = on; });
+  };
+  document.addEventListener("change", function (e) {
+    if (!e.target.matches("[data-dq]")) return;
+    setDq(e.target.checked);
+    store.set("ccarf-dq", e.target.checked ? "1" : "0");
+  });
+  // A data row (not a task heading or the "Facts & terms" sub-heading) in a host with quiz mode on.
+  var dqRow = function (e) {
+    var row = e.target.closest("table.decide tbody tr[tabindex]"), host = row && row.closest("[data-dq-host]");
+    return host && host.classList.contains("quiz") && !e.target.closest("button, a") ? row : null;
+  };
+  document.addEventListener("click", function (e) {
+    var row = dqRow(e);
+    if (row) $("td.a", row).classList.toggle("revealed");
+  });
+  document.addEventListener("keydown", function (e) {
+    if ((e.key !== "Enter" && e.key !== " ") || !e.target.matches("table.decide tbody tr[tabindex]")) return;
+    var row = dqRow(e);
+    if (row) { e.preventDefault(); $("td.a", row).classList.toggle("revealed"); }
+  });
+  setDq(dqOn);
+
+  // A decision table dialog's switch, chips and table, built from the domain's pop-up content on first open.
+  var fillDecide = function (d) {
+    if (d._filled) return;
+    d._filled = true;
+    var slot = $("[data-dc-slot]", d);
+    slot.innerHTML = popNote(popText.loading);
+    loadPop(d.getAttribute("data-dc-dialog"), function (P) {
+      if (!P) { d._filled = false; slot.innerHTML = popNote(popText.failed); return; }
+      var tasks = P.tasks.filter(function (t) { return t.nDc; });
+      var pick = function (key, label, k) {
+        return '<button type="button" data-dc-pick="' + key + '" aria-pressed="false">' + label + ' <span class="Counter">' + k + "</span></button>";
+      };
+      var total = tasks.reduce(function (a, t) { return a + t.nDc; }, 0);
+      slot.innerHTML = '<div class="dc-tools">' + quizSwitch() + '<div class="seg dc-picks" role="group" aria-label="' + popEsc(popText.dcPicks) + '">' +
+        pick("all", popEsc(popText.all), total) + tasks.map(function (t) { return pick(t.code, t.code, t.nDc); }).join("") + "</div></div>" +
+        '<div class="Box"><div class="tscroll"><table class="gh stack decide">' + tableHead(popText.decideTh || []) +
+        tasks.map(function (t) {
+          return '<tbody data-dc="' + t.code + '"><tr class="dc-h"><th colspan="3"><span class="code">' + t.code + "</span> " + t.task + "</th></tr>" + t.dc + "</tbody>";
+        }).join("") + "</table></div></div>";
+      $$("[data-dq]", slot).forEach(function (t) { t.checked = dqOn; });
+      dcPick(d, d._want || "all");
+      bmMarks();
     });
-    document.addEventListener("keydown", function (e) {
-      if ((e.key !== "Enter" && e.key !== " ") || !e.target.matches("table.decide tbody tr")) return;
-      var row = dqRow(e);
-      if (row) { e.preventDefault(); $("td.a", row).classList.toggle("revealed"); }
-    });
-    setDq(store.get("ccarf-dq") === "1");
-  }
+  };
   // The open decision table dialog, if any (the language switch carries it over as #dc-1 or #dc-1-3).
   var dcOpen = function () { return dcDlgs.filter(function (d) { return d.open; })[0] || null; };
   if (dcDlgs.length) {
@@ -255,8 +314,10 @@
       var n = /^d?(\d)/.exec(key || "");
       var d = n ? dcDlgs.filter(function (x) { return x.getAttribute("data-dc-dialog") === n[1]; })[0] : dcDlgs[0];
       if (!d) return false;
-      dcPick(d, /^\d\.\d$/.test(key) ? key : "all");
+      d._want = /^\d\.\d$/.test(key) ? key : "all";
+      dcPick(d, d._want);
       showModal(d);
+      fillDecide(d);
       $(".sum-body", d).scrollTop = 0;
       return true;
     };
@@ -521,6 +582,86 @@
       if (fold) saved[n] = 1; else delete saved[n];
       store.set(FOLD_KEY, JSON.stringify(saved));
     });
+
+    /* The study pop-up: one task statement's summary, decision table rows or exam traps (tabs), loaded on first use.
+       "Mark this step done" ticks that step in the table; the arrows move to the previous or next task statement. */
+    var pop = $("[data-pop-dialog]");
+    if (pop) {
+      var popCodes = $$("[data-plan-row]", planPage).map(function (r) { return r.getAttribute("data-plan-row"); });
+      var popBody = $("[data-pop-body]", pop), popDone = $("[data-pop-done]", pop);
+      var popAt = { code: "", tab: "sum" };
+      var popBox = function () { return $("[data-plan='" + popAt.code + ":" + popAt.tab + "']", planPage); };
+      var popTable = function (cls, cols, rows) {
+        return '<div class="Box"><div class="tscroll"><table class="gh stack ' + cls + '">' + tableHead(cols || []) + rows + "</table></div></div>";
+      };
+      var popRender = function () {
+        var code = popAt.code, tab = popAt.tab, i = popCodes.indexOf(code);
+        $$("[data-pop-tab]", pop).forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-pop-tab") === tab ? "true" : "false"); });
+        popDone.checked = !!(popBox() && popBox().checked);
+        [-1, 1].forEach(function (step) {
+          var b = $("[data-pop-go='" + step + "']", pop), to = popCodes[i + step];
+          b.disabled = !to;
+          b.style.visibility = to ? "" : "hidden";
+          $("span", b).textContent = to || "";
+        });
+        popBody.innerHTML = popNote(popText.loading);
+        loadPop(code.split(".")[0], function (P) {
+          if (popAt.code !== code || popAt.tab !== tab) return; // moved on while it loaded
+          if (!P) { popBody.innerHTML = popNote(popText.failed); return; }
+          var t = P.tasks.filter(function (x) { return x.code === code; })[0];
+          pop.style.setProperty("--c", P.color);
+          $("[data-pop-label]", pop).textContent = P.label;
+          $("[data-pop-title]", pop).innerHTML = '<span class="sum-code">' + code + "</span> " + t.task;
+          $("[data-pop-n='dc']", pop).textContent = t.nDc;
+          $("[data-pop-n='traps']", pop).textContent = t.nTraps;
+          if (tab === "sum") {
+            var alt = root.getAttribute("lang") === "ar" ? "en" : "ar", title = popEsc(pop.getAttribute("data-trx-title"));
+            popBody.innerHTML = '<div class="pop-sum" data-trx-scope><button type="button" class="trx-btn" data-trx aria-pressed="false" title="' + title + '" aria-label="' + title + '">' +
+              popEsc(pop.getAttribute("data-trx-off")) + '</button><div class="tx">' + t.sum + '</div><div class="tx" lang="' + alt + '" dir="' + (alt === "ar" ? "rtl" : "ltr") + '" hidden>' + t.sumAlt + "</div></div>";
+          } else if (tab === "dc") {
+            popBody.innerHTML = quizSwitch() + popTable("decide", popText.decideTh, '<tbody data-dc="' + code + '">' + t.dc + "</tbody>");
+          } else {
+            popBody.innerHTML = quizSwitch() + popTable("traps", popText.trapsTh, "<tbody>" + t.traps + "</tbody>") + t.tips;
+          }
+          $$("[data-dq]", popBody).forEach(function (x) { x.checked = dqOn; });
+          bmMarks();
+          popBody.scrollTop = 0;
+        });
+      };
+      planPage.addEventListener("click", function (e) {
+        var b = e.target.closest("[data-pop]");
+        if (!b) return;
+        var k = b.getAttribute("data-pop").split(":");
+        popAt = { code: k[0], tab: k[1] };
+        showModal(pop);
+        popRender();
+      });
+      pop.addEventListener("click", function (e) {
+        if (e.target === pop || e.target.closest("[data-pop-close]")) { closeModal(pop); return; } // backdrop or close button
+        var tb = e.target.closest("[data-pop-tab]");
+        if (tb) { popAt.tab = tb.getAttribute("data-pop-tab"); popRender(); return; }
+        var go = e.target.closest("[data-pop-go]");
+        if (go) {
+          var to = popCodes[popCodes.indexOf(popAt.code) + Number(go.getAttribute("data-pop-go"))];
+          if (to) { popAt.code = to; popRender(); }
+          return;
+        }
+        // Traps in quiz mode: tap a hidden cell to reveal just that one, or the trap itself to reveal both.
+        if (!pop.classList.contains("quiz") || e.target.closest("button, a")) return;
+        var row = e.target.closest("table.traps tbody tr");
+        if (!row) return;
+        var cell = e.target.closest("td.whycol, td.fixcol");
+        if (cell) { cell.classList.toggle("revealed"); return; }
+        var cells = $$("td.whycol, td.fixcol", row), show = cells.some(function (c) { return !c.classList.contains("revealed"); });
+        cells.forEach(function (c) { c.classList.toggle("revealed", show); });
+      });
+      popDone.addEventListener("change", function () {
+        var b = popBox();
+        if (!b) return;
+        b.checked = popDone.checked;
+        b.dispatchEvent(new Event("change", { bubbles: true })); // saves it and updates the counts
+      });
+    }
   }
 
   /* ---------- Notes / Traps filtering ---------- */

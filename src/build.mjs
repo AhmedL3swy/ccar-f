@@ -23,6 +23,10 @@ for (const lang of LANGS) {
   for (const f of readdirSync(outDir(lang))) if (f.endsWith(".html")) unlinkSync(join(outDir(lang), f));
 }
 mkdirSync(join(ROOT, "assets"), { recursive: true });
+// Pop-up content (assets/pop/<lang>-d<n>.js) is generated too, so it's cleared and rewritten every build.
+const POP_DIR = join(ROOT, "assets", "pop");
+rmSync(POP_DIR, { recursive: true, force: true });
+mkdirSync(POP_DIR, { recursive: true });
 
 const sheetsFor = async (lang) => {
   const file = join(here, lang === "ar" ? "cheatsheets.ar.mjs" : "cheatsheets.mjs");
@@ -128,6 +132,9 @@ const P = {
     planTh: ["Task statement", "Read summary", "Decision table", "Exam traps", "Solved questions (external)"],
     planShort: ["Summary", "Decisions", "Traps", "Solved Qs"], // phones: each step's name above its checkbox
     planFold: "Show or hide this domain's task statements",
+    planOpen: ["Open the summary", "Open the decision table", "Open the exam traps"], popDone: "Mark this step done",
+    popLoading: "Loading…", popFailed: "Couldn't load this. Check your connection and try again.",
+    recallH: "Facts & terms",
     planDone: "{done} of {total} steps done · {pct}%", planReset: "Reset", planConfirm: "Clear all your ticks in the plan?",
     nfTitle: "Page not found",
     nfBody: `The page you asked for doesn't exist. Go to the <a href="index.html">home page</a>, the <a href="cheat-tables.html">cheat tables</a>, the <a href="traps.html">exam traps</a> or <a href="notes.html">search the notes</a>.`,
@@ -223,6 +230,9 @@ const P = {
     planTh: ["المهمة", "قريت الملخص", "جدول القرارات", "مطبات الامتحان", "حليت أسئلة (من برّه)"],
     planShort: ["الملخص", "القرارات", "المطبات", "الأسئلة"],
     planFold: "اعرض أو خبّي مهام المجال ده",
+    planOpen: ["افتح الملخص", "افتح جدول القرارات", "افتح مطبات الامتحان"], popDone: "علّم الخطوة دي إنها خلصت",
+    popLoading: "بيحمّل…", popFailed: "مقدرناش نحمّل ده. اتأكد من النت وجرّب تاني.",
+    recallH: "معلومات ومصطلحات",
     planDone: "خلصت {done} من {total} خطوة · {pct}%", planReset: "ابدأ من الأول", planConfirm: "تمسح كل العلامات اللي في الخطة؟",
     nfTitle: "الصفحة مش موجودة",
     nfBody: `الصفحة اللي بتدوّر عليها مش موجودة. روح <a href="index.html">للرئيسية</a> أو <a href="cheat-tables.html">لجداول المراجعة</a> أو <a href="traps.html">لمطبات الامتحان</a>، أو <a href="notes.html">دوّر في الملاحظات</a>.`,
@@ -247,12 +257,19 @@ function site(lang, data, altData, SHEETS, ALT_SHEETS) {
   const altLang = lang === "en" ? "ar" : "en";
   const A = P[altLang];
   const T = totals(data);
-  // Decision table rows per task statement ({ "1.1": [[symptom, answer], …] }); both languages must line up row for row.
+  // Decision table rows per task statement ({ "1.1": [[symptom, answer], …] }) and, after them, its fact & term
+  // recall rows ([[question, answer], …]). Both languages must line up row for row.
   const decideOf = (n) => SHEETS[n].decide || {};
+  const recallOf = (n) => SHEETS[n].recall || {};
   for (const d of data)
-    for (const [code, rows] of Object.entries(decideOf(d.n)))
-      if ((ALT_SHEETS[d.n].decide?.[code] || []).length !== rows.length) throw new Error(`Decision table ${code}: the English and Arabic rows don't line up`);
-  const nDecide = (n) => sum(Object.values(decideOf(n)), (rows) => rows.length);
+    for (const kind of ["decide", "recall"])
+      for (const [code, rows] of Object.entries(SHEETS[d.n][kind] || {}))
+        if ((ALT_SHEETS[d.n][kind]?.[code] || []).length !== rows.length) throw new Error(`Decision table ${code} (${kind}): the English and Arabic rows don't line up`);
+  const nTaskRows = (code) => {
+    const n = code.split(".")[0];
+    return (decideOf(n)[code] || []).length + (recallOf(n)[code] || []).length;
+  };
+  const nDecide = (n) => sum(data.find((d) => d.n === Number(n)).lessons, (l) => nTaskRows(l.code));
   T.decide = sum(data, (d) => nDecide(d.n));
   // Each table cell carries both languages; the row's translate button swaps which one is shown.
   const dual = (html, altHtml) =>
@@ -467,20 +484,22 @@ ${tasks}
   });
 
   /* ------------------------------------------------------------ Traps */
-  // One task's traps table and exam tips. Traps live on this page only (for practice); the cheat tables don't link to them.
-  const trapBlock = (d, l, a) => {
-    const r = l.traps
+  // One task's traps table and exam tips, on the traps page and (rows and tips only) in the plan page's pop-up.
+  // The cheat tables don't link to the traps.
+  const trapRows = (d, l, a) =>
+    l.traps
       .map((t, i) => {
         const at = a.traps[i];
         return `<tr data-row data-d="${d.n}" data-kind="trap" tabindex="0" ${bmAttrs(`trap:${l.code}:${i}`, "trap", `traps.html#${id("t", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${altTask(l.code)}`)}><td class="trapcol">${dual(md(t.trap), md(at.trap))}</td><td class="whycol">${dual(md(t.why), md(at.why))}</td><td class="fixcol">${dual(md(t.fix), md(at.fix))}</td>${trxCell}</tr>`;
       })
       .join("");
-    const tips = (l.exam_tips || []).length
+  const trapTips = (d, l) =>
+    (l.exam_tips || []).length
       ? `<div class="flash tips"><div class="flash-title">${icon("bulb", "oc")}${S.tipsH}</div><ul>${l.exam_tips.map((t) => `<li data-row data-d="${d.n}" data-kind="tip">${md(t)}</li>`).join("")}</ul></div>`
       : "";
-    return `<div class="Box"><div class="tscroll"><table class="gh stack traps"><thead><tr>${S.trapsTh.map((h) => `<th>${h}</th>`).join("")}${trxTh}</tr></thead><tbody>${r}</tbody></table></div></div>
-  ${tips}`;
-  };
+  const trapsHead = `<thead><tr>${S.trapsTh.map((h) => `<th>${h}</th>`).join("")}${trxTh}</tr></thead>`;
+  const trapBlock = (d, l, a) => `<div class="Box"><div class="tscroll"><table class="gh stack traps">${trapsHead}<tbody>${trapRows(d, l, a)}</tbody></table></div></div>
+  ${trapTips(d, l)}`;
   const trapsDomains = data
     .map((d, di) => {
       const tasks = d.lessons
@@ -521,7 +540,7 @@ ${tasks}
   // A task's decision table rows, as a small pill with their count. It opens the domain's decision table dialog
   // on that task (data-decide-pop), on a cheat table and on the index; the href is the no-JS fallback.
   const dcPill = (l) => {
-    const n = (decideOf(l.code.split(".")[0])[l.code] || []).length;
+    const n = nTaskRows(l.code);
     if (!n) return "";
     const attrs = `class="dc-pill" title="${esc(S.dcOf(l.code))}" aria-label="${esc(S.dcOf(l.code))}"`;
     return `<a ${attrs} href="cheat-table-${l.code.split(".")[0]}.html#${id("dc", l.code)}" data-decide-pop="${l.code}">${icon("target")}<span>${n}</span></a>`;
@@ -529,23 +548,31 @@ ${tasks}
   // A heading that carries both languages; the translate button of its box swaps them.
   const dualInline = (html, altHtml) =>
     `<span class="tx">${html}</span><span class="tx" lang="${altLang}" dir="${altLang === "ar" ? "rtl" : "ltr"}" hidden>${altHtml}</span>`;
-  // A domain's decision table, grouped by task statement (one <tbody data-dc> each): on its cheat table, and in its
-  // own dialog for drilling (data-dc-dialog), which the index holds too. Each copy has the quiz switch (data-dq:
-  // each usual answer stays hidden until tapped) and chips that show one task's rows (data-dc-pick).
-  // data-decide-pop="d1" opens the dialog on all rows, "1.3" on one task; a bookmarked row links to #dc-1-3.
+  // One task's decision table rows: its scenario rows, then its fact & term recall rows under a sub-heading.
+  // Each row carries both languages (translate button) and a bookmark button; a bookmarked row links to #dc-1-3.
+  const dcRows = (d, l, a) => {
+    const row = (bmId, [q, ans], [aq, aans]) =>
+      `<tr tabindex="0" ${bmAttrs(bmId, "decide", `cheat-table-${d.n}.html#${id("dc", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${a.task}`)}><td class="q">${dual(md(q), md(aq))}</td><td class="a"><span class="ans">${dualInline(md(ans), md(aans))}</span></td>${trxCell}</tr>`;
+    const rows = decideOf(d.n)[l.code] || [], alt = ALT_SHEETS[d.n].decide?.[l.code] || [];
+    const rc = recallOf(d.n)[l.code] || [], rcAlt = ALT_SHEETS[d.n].recall?.[l.code] || [];
+    return rows.map((r, i) => row(`decide:${l.code}:${i}`, r, alt[i])).join("") +
+      (rc.length ? `<tr class="dc-sub"><th colspan="3">${icon("book")}${S.recallH}</th></tr>` + rc.map((r, i) => row(`decide:${l.code}:r${i}`, r, rcAlt[i])).join("") : "");
+  };
+  const dcHead = `<thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th>${trxTh}</tr></thead>`;
+  // A domain's decision table, grouped by task statement (one <tbody data-dc> each), on its cheat table. Its dialog
+  // for drilling (data-dc-dialog, also on the index) is an empty frame that site.js fills from assets/pop/ on first
+  // open, so pages don't carry a second copy. Both have the quiz switch (data-dq: each usual answer stays hidden
+  // until tapped) and chips that show one task's rows (data-dc-pick).
+  // data-decide-pop="d1" opens the dialog on all rows, "1.3" on one task.
   const decideFor = (d, di) => {
     const ad = altData[di];
-    const groups = d.lessons
-      .map((l, li) => ({ l, a: ad.lessons[li], rows: decideOf(d.n)[l.code] || [], alt: ALT_SHEETS[d.n].decide?.[l.code] || [] }))
-      .filter((g) => g.rows.length);
+    const groups = d.lessons.map((l, li) => ({ l, a: ad.lessons[li], k: nTaskRows(l.code) })).filter((g) => g.k);
     const n = nDecide(d.n);
     const pick = (key, label, k) => `<button type="button" data-dc-pick="${key}" aria-pressed="${key === "all"}">${label} <span class="Counter">${k}</span></button>`;
     const table = () => `<div class="dc-tools"><label class="toggle dq-toggle"><input type="checkbox" data-dq> ${S.quiz}</label>
-  <div class="seg dc-picks" role="group" aria-label="${esc(S.dcPicks)}">${pick("all", S.all, n)}${groups.map((g) => pick(g.l.code, g.l.code, g.rows.length)).join("")}</div></div>
-  <div class="Box"><div class="tscroll"><table class="gh stack decide"><thead><tr><th>${S.decideTh[0]}</th><th>${S.decideTh[1]}</th>${trxTh}</tr></thead>${groups
-    .map(({ l, a, rows, alt }) => `<tbody data-dc="${l.code}"><tr class="dc-h"><th colspan="3"><span class="code">${esc(l.code)}</span> ${md(l.task)}</th></tr>${rows
-      .map(([q, ans], i) => `<tr tabindex="0" ${bmAttrs(`decide:${l.code}:${i}`, "decide", `cheat-table-${d.n}.html#${id("dc", l.code)}`, `${l.code} ${l.task}`, `${l.code} ${a.task}`)}><td class="q">${dual(md(q), md(alt[i][0]))}</td><td class="a"><span class="ans">${dualInline(md(ans), md(alt[i][1]))}</span></td>${trxCell}</tr>`)
-      .join("")}</tbody>`)
+  <div class="seg dc-picks" role="group" aria-label="${esc(S.dcPicks)}">${pick("all", S.all, n)}${groups.map((g) => pick(g.l.code, g.l.code, g.k)).join("")}</div></div>
+  <div class="Box"><div class="tscroll"><table class="gh stack decide">${dcHead}${groups
+    .map(({ l, a }) => `<tbody data-dc="${l.code}"><tr class="dc-h"><th colspan="3"><span class="code">${esc(l.code)}</span> ${md(l.task)}</th></tr>${dcRows(d, l, a)}</tbody>`)
     .join("")}</table></div></div>`;
     const dialog = n
       ? `
@@ -557,7 +584,7 @@ ${tasks}
     </div>
     <div class="sum-body dc-body">
       <p class="section-lead">${S.decideLead}</p>
-      ${table()}
+      <div class="dc-slot" data-dc-slot></div>
     </div>
   </div>
 </dialog>`
@@ -565,6 +592,23 @@ ${tasks}
     return { n, table, dialog };
   };
   const decides = data.map((d, di) => decideFor(d, di));
+  // Pop-up content, loaded only when a pop-up opens: assets/pop/<lang>-d<n>.js sets CCARF_POP[n] to the domain's
+  // summaries (both languages), decision table rows and trap rows, ready-made. Labels the pop-ups build with are
+  // in #pop-text on the pages that have them.
+  data.forEach((d, di) => {
+    const ad = altData[di];
+    const pop = {
+      color: d.color, label: S.domainLabel(d.n),
+      tasks: d.lessons.map((l, li) => {
+        const a = ad.lessons[li];
+        return { code: l.code, task: md(l.task), sum: paras(l.summary), sumAlt: paras(a.summary), nDc: nTaskRows(l.code), dc: dcRows(d, l, a), nTraps: l.traps.length, traps: trapRows(d, l, a), tips: trapTips(d, l) };
+      }),
+    };
+    writeFileSync(join(POP_DIR, `${lang}-d${d.n}.js`), `window.CCARF_POP=window.CCARF_POP||{};window.CCARF_POP[${d.n}]=${JSON.stringify(pop)};\n`, "utf8");
+  });
+  const popText = `<script type="application/json" id="pop-text">${JSON.stringify({
+    quiz: S.quiz, all: S.all, dcPicks: S.dcPicks, decideTh: S.decideTh, trapsTh: S.trapsTh, trxTh: S.trxTh, loading: S.popLoading, failed: S.popFailed,
+  }).replace(/</g, "\\u003c")}</script>`;
   write("cheat-tables.html", {
     title: S.cheatTitle,
     description: S.cheatDesc,
@@ -596,6 +640,7 @@ ${tasks}
     .join("")}</div>
   ${sumDialog("c", data, "cheat-table-{n}.html")}
   ${decides.map((x) => x.dialog).join("")}
+  ${popText}
 </div>`,
   });
   // Key facts and terms of one task statement, in both languages.
@@ -671,6 +716,7 @@ ${tasks}
   </div>
   ${sumDialog("c", [d])}
   ${decideDialog}
+  ${popText}
 </div>`,
     });
   });
@@ -703,11 +749,36 @@ ${tasks}
   // A progress table: one row per task statement, one checkbox per study step (data-plan="1.1:sum").
   // site.js keeps the ticks in localStorage and fills in the counts and the progress bar. Each domain's heading
   // row folds its task rows away (data-plan-fold); which domains are folded is remembered too.
+  // Beside the first three checkboxes, a button (data-pop="1.3:dc") opens that step for that task in the study
+  // pop-up, whose content site.js loads from assets/pop/ when it opens; its tabs switch between the steps.
   const planSteps = ["sum", "dc", "traps", "q"];
+  const planIcons = { sum: "book", dc: "target", traps: "alert" };
+  // The 90 open buttons point at one copy of each icon (an inline sprite) instead of repeating its paths.
+  const sprite = `<svg class="sprite" aria-hidden="true">${Object.values(planIcons)
+    .map((n) => icon(n).replace(/^<svg[^>]*>/, `<symbol id="pi-${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">`).replace(/<\/svg>$/, "</symbol>"))
+    .join("")}</svg>`;
+  const planOpen = (l, k, i) =>
+    planIcons[k] ? `<button type="button" class="plan-open" data-pop="${l.code}:${k}" title="${esc(`${S.planOpen[i]} · ${l.code}`)}" aria-label="${esc(`${S.planOpen[i]} · ${l.code}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-${planIcons[k]}"/></svg></button>` : "";
+  const popTab = (k, i) => `<button type="button" data-pop-tab="${k}" aria-pressed="false">${icon(planIcons[k])}<span>${S.planShort[i]}</span>${k === "sum" ? "" : ` <span class="Counter" data-pop-n="${k}"></span>`}</button>`;
+  const popDialog = `
+<dialog class="sum-dialog pop-dialog" id="pop-dialog" aria-labelledby="pop-title" data-pop-dialog data-dq-host ${trxAttrs}>
+  <div class="sum-inner">
+    <div class="sum-head">
+      <div class="sum-titles"><span class="Label" data-pop-label></span><h2 id="pop-title" data-pop-title></h2></div>
+      <div class="sum-tools"><button type="button" class="sum-close" data-pop-close aria-label="${esc(S.sumClose)}" title="${esc(S.sumClose)}">${icon("x")}</button></div>
+    </div>
+    <div class="pop-bar">
+      <div class="seg pop-tabs" role="group" aria-label="${esc(S.planTitle)}">${["sum", "dc", "traps"].map(popTab).join("")}</div>
+      <label class="toggle pop-done"><input type="checkbox" data-pop-done> ${S.popDone}</label>
+    </div>
+    <div class="sum-body pop-body" data-pop-body></div>
+    <div class="pop-foot"><button type="button" class="btn btn-sm" data-pop-go="-1">${icon("arrowLeft")}<span></span></button><button type="button" class="btn btn-sm" data-pop-go="1"><span></span>${icon("arrowRight")}</button></div>
+  </div>
+</dialog>`;
   const planGroups = data
     .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th colspan="5"><button type="button" class="plan-dh-in" data-plan-fold aria-expanded="true" title="${esc(S.planFold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)}</span><span class="Counter" data-plan-count>0/${d.lessons.length * planSteps.length}</span></button></th></tr>${d.lessons
-      .map((l) => `<tr data-plan-row><td class="plan-task"><a href="cheat-table-${d.n}.html${hasCard(l.code) ? `#${id("c", l.code)}` : ""}"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a></td>${planSteps
-        .map((k, i) => `<td class="plan-step"><label class="plan-cb" data-label="${esc(S.planShort[i])}"><input type="checkbox" data-plan="${l.code}:${k}" aria-label="${esc(`${l.code} · ${S.planTh[i + 1]}`)}"></label></td>`)
+      .map((l) => `<tr data-plan-row="${l.code}"><td class="plan-task"><a href="cheat-table-${d.n}.html${hasCard(l.code) ? `#${id("c", l.code)}` : ""}"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a></td>${planSteps
+        .map((k, i) => `<td class="plan-step" data-label="${esc(S.planShort[i])}"><div class="plan-cell"><label class="plan-cb"><input type="checkbox" data-plan="${l.code}:${k}" aria-label="${esc(`${l.code} · ${S.planTh[i + 1]}`)}"></label>${planOpen(l, k, i)}</div></td>`)
         .join("")}</tr>`)
       .join("")}</tbody>`)
     .join("");
@@ -725,6 +796,9 @@ ${tasks}
     </div>
     <div class="Box"><div class="tscroll"><table class="gh plan-table"><thead><tr>${S.planTh.map((h, i) => `<th${i ? ' class="plan-step"' : ""}>${h}</th>`).join("")}</tr></thead>${planGroups}</table></div></div>
   </div>
+  ${popDialog}
+  ${popText}
+  ${sprite}
 </div>`,
   });
 
