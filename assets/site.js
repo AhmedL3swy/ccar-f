@@ -46,7 +46,7 @@
   var planGet = function () {
     try { var v = JSON.parse(store.get(PLAN_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; }
   };
-  var planBoxes = $$("[data-plan]", planPage);
+  var planBoxes = $$("[data-plan]", planPage), planNext = $("[data-plan-next]", planPage);
   var ticked = function (bs) { return bs.filter(function (b) { return b.checked; }).length; };
   var planShow = function () {
     var saved = planGet();
@@ -60,6 +60,14 @@
     var done = ticked(planBoxes), pct = Math.round((done * 100) / planBoxes.length);
     $("[data-plan-bar]", planPage).style.width = pct + "%";
     $("[data-plan-total]", planPage).textContent = planPage.getAttribute("data-plan-tpl").replace("{done}", done).replace("{total}", planBoxes.length).replace("{pct}", pct);
+    // Continue: the first step in plan order that opens in the pop-up and isn't ticked yet (none left: hidden).
+    var next = planBoxes.filter(function (b) { return !b.checked && plan.steps[b.getAttribute("data-plan").split(":")[1]]; })[0];
+    planNext.hidden = !next;
+    if (next) {
+      var at = next.getAttribute("data-plan").split(":");
+      planNext.setAttribute("href", hashFor({ code: at[0], tab: at[1] }));
+      $("[data-plan-next-at]", planNext).innerHTML = "<b>" + at[0] + "</b> " + esc(plan.names[at[1]]);
+    }
     if (pop && pop.open) popDone.checked = !!saved[popAt.code + ":" + popAt.tab];
   };
   planPage.addEventListener("change", function (e) {
@@ -97,13 +105,13 @@
   });
 
   /* ---------- Pop-ups and their addresses ----------
-     Each pop-up has an address: #1.4/summary, #1.4/decisions or #1.4/traps (the study pop-up) and #about.
+     Each pop-up has an address: #1.4/summary, #1.4/decisions or #1.4/traps (the study pop-up), #bookmarks and #about.
      Opening one from the page adds a history entry, so the phone's back button closes it instead of leaving the
      site, and a link with that address opens it straight away. Switching tabs or tasks inside the pop-up replaces
      that entry, so one back always closes it. */
   var plan = JSON.parse($("#plan-data").textContent);
   var T = plan.text;
-  var pop = $("[data-pop]"), about = $("[data-about]");
+  var pop = $("[data-pop]"), about = $("[data-about]"), bms = $("[data-bms]");
   var codes = plan.tasks.map(function (t) { return t.code; });
   var tabOf = {};
   Object.keys(plan.steps).forEach(function (k) { tabOf[plan.steps[k]] = k; });
@@ -112,7 +120,7 @@
     return m && codes.indexOf(m[1]) >= 0 && tabOf[m[2]] ? { code: m[1], tab: tabOf[m[2]] } : null;
   };
   var hashFor = function (at) { return "#" + at.code + "/" + plan.steps[at.tab]; };
-  var isRoute = function (h) { return h === "#about" || !!parse(h); };
+  var isRoute = function (h) { return h === "#about" || h === "#bookmarks" || !!parse(h); };
   var push = function (h) { try { history.pushState({ ccarf: 1 }, "", h); } catch (e) { location.hash = h; } };
   var replace = function (h) { try { history.replaceState(history.state, "", h); } catch (e) { /* not allowed here */ } };
 
@@ -128,9 +136,10 @@
   };
   var route = function () {
     var at = parse(location.hash);
-    if (location.hash === "#about") { hide(pop); show(about); }
-    else if (at) { hide(about); popAt = at; show(pop); popRender(); }
-    else { hide(pop); hide(about); }
+    if (location.hash === "#about") { hide(pop); hide(bms); show(about); }
+    else if (location.hash === "#bookmarks") { hide(pop); hide(about); bmRender(); show(bms); }
+    else if (at) { hide(about); hide(bms); popAt = at; show(pop); popRender(); }
+    else { hide(pop); hide(about); hide(bms); }
   };
   document.addEventListener("click", function (e) {
     var a = e.target.closest('a[href^="#"]');
@@ -143,10 +152,10 @@
   window.addEventListener("hashchange", route);
   // However a pop-up closes (close button, backdrop, Escape), its address goes too: back through the entry the
   // page added, or, when it was opened from a link, by dropping the address.
-  [pop, about].forEach(function (d) {
+  [pop, about, bms].forEach(function (d) {
     d.addEventListener("close", function () {
       if (!$("dialog[open]")) root.classList.remove("modal-open");
-      if (!(d === pop ? parse(location.hash) : location.hash === "#about")) return;
+      if (!(d === pop ? parse(location.hash) : location.hash === "#" + d.id)) return;
       if (history.state && history.state.ccarf) history.back();
       else { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* not allowed here */ } }
     });
@@ -190,9 +199,13 @@
       cols.map(function (c) { return "<th>" + esc(c) + "</th>"; }).join("") + '<th class="trx"><span class="sr-only">' + esc(T.trxTh) + "</span></th></tr></thead><tbody>" +
       rows + "</tbody></table></div></div>";
   };
-  var qaRows = function (rows) {
-    return rows.map(function (r) {
-      return '<tr tabindex="0"><td class="q">' + dual(r[0], r[2]) + '</td><td class="a"><span class="ans">' + dual(r[1], r[3], "span") + '</span></td><td class="trx">' + trxBtn + "</td></tr>";
+  // Each row's buttons: bookmark it, and show its Arabic. data-bm-id ("dc:1.4:2") names the row for Bookmarks.
+  var bmBtn = '<button type="button" class="bm-btn" data-bm aria-pressed="false" title="' + esc(T.bm) + '" aria-label="' + esc(T.bm) + '">' + ic("bookmark") + "</button>";
+  var acts = '<td class="trx"><div class="row-acts">' + bmBtn + trxBtn + "</div></td>";
+  var rowOpen = function (kind, code, i) { return '<tr tabindex="0" data-bm-id="' + kind + ":" + code + ":" + i + '" data-bm-kind="' + kind + '">'; };
+  var qaRows = function (rows, kind, code) {
+    return rows.map(function (r, i) {
+      return rowOpen(kind, code, i) + '<td class="q">' + dual(r[0], r[2]) + '</td><td class="a"><span class="ans">' + dual(r[1], r[3], "span") + "</span></td>" + acts + "</tr>";
     }).join("");
   };
   // One section of a tab under its own heading; a rule runs from the heading to the edge, and a gap sets the
@@ -206,12 +219,12 @@
     // Decisions first, then the facts & terms, each under its own heading.
     dc: function (x) {
       return quizSwitch() +
-        (x.dc.length ? section("target", T.decisions, x.dc.length, table("decide", T.decideTh, qaRows(x.dc))) : "") +
-        (x.terms.length ? section("book", T.terms, x.terms.length, table("decide terms", T.termsTh, qaRows(x.terms))) : "");
+        (x.dc.length ? section("target", T.decisions, x.dc.length, table("decide", T.decideTh, qaRows(x.dc, "dc", x.code))) : "") +
+        (x.terms.length ? section("book", T.terms, x.terms.length, table("decide terms", T.termsTh, qaRows(x.terms, "term", x.code))) : "");
     },
     traps: function (x) {
-      return quizSwitch() + table("traps", T.trapsTh, x.traps.map(function (r) {
-        return '<tr tabindex="0"><td class="trapcol">' + dual(r[0], r[3]) + '</td><td class="whycol">' + dual(r[1], r[4]) + '</td><td class="fixcol">' + dual(r[2], r[5]) + '</td><td class="trx">' + trxBtn + "</td></tr>";
+      return quizSwitch() + table("traps", T.trapsTh, x.traps.map(function (r, i) {
+        return rowOpen("trap", x.code, i) + '<td class="trapcol">' + dual(r[0], r[3]) + '</td><td class="whycol">' + dual(r[1], r[4]) + '</td><td class="fixcol">' + dual(r[2], r[5]) + "</td>" + acts + "</tr>";
       }).join("")) + (x.tips.length
         ? '<div class="flash tips" data-trx-scope><div class="flash-title">' + ic("bulb") + "<span>" + esc(T.tips) + "</span>" + trxBtn + "</div><ul>" +
           x.tips.map(function (t) { return "<li>" + dual(t[0], t[1], "span") + "</li>"; }).join("") + "</ul></div>"
@@ -238,6 +251,7 @@
       if (popAt !== at) return; // moved on while it loaded
       var x = P && P.filter(function (y) { return y.code === at.code; })[0];
       popBody.innerHTML = x ? bodies[at.tab](x) : note(T.failed);
+      bmMarks();
     });
   };
   var popGo = function (at) { popAt = at; replace(hashFor(at)); popRender(); };
@@ -256,6 +270,115 @@
     b.checked = popDone.checked;
     b.dispatchEvent(new Event("change", { bubbles: true })); // saves it and updates the counts
   });
+
+  /* ---------- Bookmarks: rows saved from the study pop-up, listed in the Bookmarks pop-up ----------
+     Saving keeps a copy of the row's cells (both languages) in localStorage, newest first, so the list needs no
+     loading: { id: "dc:1.4:2", kind, code, cells, at }. Bookmarks saved by the earlier, multi-page site
+     (decide/trap/note… kinds, with a `ctx` line and a `lang`) are still listed. */
+  var BM_KEY = "ccarf-bookmarks";
+  var bmList = function () {
+    try { var v = JSON.parse(store.get(BM_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  };
+  var bmSave = function (list) { store.set(BM_KEY, JSON.stringify(list)); bmMarks(); };
+  var bmMarks = function () {
+    var list = bmList(), ids = {};
+    list.forEach(function (b) { ids[b.id] = true; });
+    $$("[data-bm-id]", pop).forEach(function (r) {
+      var b = $("[data-bm]", r);
+      if (b) b.setAttribute("aria-pressed", ids[r.getAttribute("data-bm-id")] ? "true" : "false");
+    });
+    $$("[data-bm-count]").forEach(function (c) { c.textContent = list.length; c.hidden = !list.length; });
+  };
+  // The row's cells as shown on the page (English first, its Arabic hidden), without buttons.
+  var bmCells = function (row) {
+    return $$("td", row).filter(function (td) { return !td.classList.contains("trx"); }).map(function (td) {
+      var c = td.cloneNode(true);
+      $$("button", c).forEach(function (n) { n.parentNode.removeChild(n); });
+      $$(".tx", c).forEach(function (x) { x.hidden = x.hasAttribute("lang"); });
+      return c.innerHTML;
+    });
+  };
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-bm]"), row = b && b.closest("[data-bm-id]");
+    if (!row) return;
+    var id = row.getAttribute("data-bm-id"), list = bmList();
+    var rest = list.filter(function (x) { return x.id !== id; });
+    if (rest.length === list.length) {
+      rest.unshift({ id: id, kind: row.getAttribute("data-bm-kind"), code: id.split(":")[1], cells: bmCells(row), at: Date.now() });
+    }
+    bmSave(rest);
+  });
+
+  var bmGroup = store.get("ccarf-bm-group") || "all";
+  var groupOf = function (kind) { return kind === "trap" ? "trap" : kind === "dc" || kind === "term" || kind === "decide" ? "dc" : "note"; };
+  var tabFor = { dc: "decisions", term: "decisions", decide: "decisions", trap: "traps" };
+  var labelsFor = function (kind) { return kind === "trap" ? T.trapsTh : kind === "term" ? T.termsTh : kind === "dc" || kind === "decide" ? T.decideTh : []; };
+  // An earlier site's bookmark saved on its Arabic pages shows its Arabic first: put English first, like the rest.
+  var englishFirst = function (el, saved) {
+    if (saved !== "ar") return;
+    $$(".tx", el).forEach(function (x) {
+      if (x.getAttribute("lang") === "en") { x.removeAttribute("lang"); x.removeAttribute("dir"); x.hidden = false; }
+      else if (!x.hasAttribute("lang")) { x.setAttribute("lang", "ar"); x.setAttribute("dir", "rtl"); x.hidden = true; }
+    });
+  };
+  var bmRender = function () {
+    var list = bmList(), counts = { all: list.length, dc: 0, trap: 0, note: 0 };
+    list.forEach(function (b) { counts[groupOf(b.kind)]++; });
+    if (!(bmGroup in counts) || (bmGroup !== "all" && !counts[bmGroup])) bmGroup = "all";
+    $$("[data-bm-group]", bms).forEach(function (g) {
+      var k = g.getAttribute("data-bm-group");
+      g.setAttribute("aria-pressed", k === bmGroup ? "true" : "false");
+      g.hidden = k !== "all" && !counts[k];
+      $("[data-bm-n]", g).textContent = counts[k];
+    });
+    $("[data-bm-total]", bms).textContent = list.length;
+    var shown = list.filter(function (b) { return bmGroup === "all" || groupOf(b.kind) === bmGroup; });
+    var listEl = $("[data-bm-list]", bms);
+    listEl.innerHTML = shown.map(function (b) {
+      var code = b.code || ((/^(\d\.\d+)/.exec(b.ctx || "") || [])[1]);
+      var t = plan.tasks[codes.indexOf(code)];
+      var labels = labelsFor(b.kind), dualRow = (b.cells || []).some(function (c) { return c.indexOf('class="tx"') !== -1; });
+      var where = t
+        ? '<a class="bm-where" href="#' + t.code + "/" + (tabFor[b.kind] || "summary") + '" style="--c:' + plan.domains[t.d].color + '"><b>' + t.code + "</b> <span>" + t.task + "</span></a>"
+        : '<span class="bm-where">' + esc(b.ctx || "") + "</span>";
+      return '<article class="Box bm-item" data-trx-scope data-id="' + esc(b.id) + '"><header class="bm-h"><span class="Label bm-kind k-' + esc(groupOf(b.kind)) + '">' +
+        esc((T.bmKinds || {})[b.kind] || b.kind) + "</span>" + where + '<div class="row-acts">' + (dualRow ? trxBtn : "") +
+        '<button type="button" class="bm-btn" data-bm-del aria-pressed="true" title="' + esc(T.bmRemove) + '" aria-label="' + esc(T.bmRemove) + '">' + ic("bookmark") + "</button></div></header>" +
+        '<div class="bm-cells">' + (b.cells || []).map(function (c, i) {
+          return '<div class="bm-cell bm-c' + i + '">' + (labels[i] && i ? '<div class="bm-lbl">' + esc(labels[i]) + "</div>" : "") + c + "</div>";
+        }).join("") + "</div></article>";
+    }).join("");
+    shown.forEach(function (b, i) { englishFirst(listEl.children[i], b.lang); });
+    $("[data-bm-empty]", bms).hidden = list.length > 0;
+    $("[data-bm-bar]", bms).hidden = !list.length;
+    bmFilter();
+  };
+  // Search: keeps the bookmarks whose text (either language, the task and the kind) holds every word typed.
+  // "Clear all" hides while searching, since it would also clear the bookmarks the search hides.
+  var bmQ = $("[data-bm-q]", bms);
+  var bmFilter = function () {
+    var words = bmQ.value.toLowerCase().split(/\s+/).filter(Boolean), items = $$(".bm-item", bms), hits = 0;
+    items.forEach(function (a) {
+      var text = a.textContent.toLowerCase();
+      a.hidden = !words.every(function (w) { return text.indexOf(w) !== -1; });
+      if (!a.hidden) hits++;
+    });
+    $("[data-bm-none]", bms).hidden = !items.length || hits > 0;
+    $("[data-bm-clear]", bms).hidden = !items.length || words.length > 0;
+  };
+  bmQ.addEventListener("input", bmFilter);
+  // Escape empties the search first; with nothing typed it closes the pop-up as usual.
+  bmQ.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && bmQ.value) { e.preventDefault(); bmQ.value = ""; bmFilter(); }
+  });
+  bms.addEventListener("click", function (e) {
+    var g = e.target.closest("[data-bm-group]");
+    if (g) { bmGroup = g.getAttribute("data-bm-group"); store.set("ccarf-bm-group", bmGroup); bmRender(); return; }
+    var del = e.target.closest("[data-bm-del]");
+    if (del) { var id = del.closest("[data-id]").getAttribute("data-id"); bmSave(bmList().filter(function (x) { return x.id !== id; })); bmRender(); return; }
+    if (e.target.closest("[data-bm-clear]") && window.confirm(T.bmConfirm)) { bmSave([]); bmRender(); }
+  });
+  window.addEventListener("storage", function (e) { if (e.key === BM_KEY) { bmMarks(); if (bms.open) bmRender(); } }); // saved in another tab
 
   /* ---------- Translate one row (or the summary, or the tips box) ---------- */
   document.addEventListener("click", function (e) {
@@ -299,5 +422,6 @@
   });
 
   planShow();
-  route(); // an address in the link (#1.4/decisions, #about) opens its pop-up straight away
+  bmMarks();
+  route(); // an address in the link (#1.4/decisions, #bookmarks, #about) opens its pop-up straight away
 })();

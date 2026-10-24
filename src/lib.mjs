@@ -46,14 +46,19 @@ const P = {
   arrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
   arrowUp: '<path d="M12 19V5M5 12l7-7 7 7"/>',
   chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+  external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  quiz: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
 };
 
 export const icon = (name, cls = "") =>
   `<svg${cls ? ` class="${cls}"` : ""} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.info}</svg>`;
 
 // The whole site is this one page: a header with the theme switch, the body, and a footer whose link opens the
-// About pop-up. Everything else opens in pop-ups over it.
-export function layout({ description, body, about }) {
+// About pop-up. Everything else opens in pop-ups over it. `nav`: extra header links, shown before About; `cta`:
+// the header's main action, after About.
+export function layout({ description, body, about, nav = "", cta = "" }) {
   return `<!doctype html>
 <html lang="en" dir="ltr">
 <head>
@@ -75,7 +80,7 @@ export function layout({ description, body, about }) {
 <header class="site-header">
   <div class="container">
     <span class="brand"><span class="brand-mark">${icon("network")}</span><span>CCAR-F <small>Field Guide</small></span></span>
-    <a class="head-link" href="#about">${icon("info")}<span>About</span></a>
+    ${nav}<a class="head-link" href="#about">${icon("info")}<span>About</span></a>${cta}
     <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch between light and dark theme" title="Switch between light and dark theme">${icon("moon", "i-moon")}${icon("sun", "i-sun")}</button>
   </div>
 </header>

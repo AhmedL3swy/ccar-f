@@ -36,10 +36,17 @@ const S = {
     { k: "sum", hash: "summary", th: "Summary", short: "Summary", tab: "Summary", ic: "book", open: "Open the summary" },
     { k: "dc", hash: "decisions", th: "Decisions & terms", short: "Decisions & terms", tab: "Decisions & terms", ic: "target", open: "Open the decisions & terms" },
     { k: "traps", hash: "traps", th: "Exam traps", short: "Traps", tab: "Traps", ic: "alert", open: "Open the exam traps" },
-    { k: "q", th: "Solved questions (external)", short: "Solved Qs" },
+    { k: "q", th: "Practice questions", short: "Practice Qs", ic: "external", open: "Open the practice test (new tab)" },
   ],
+  // An external practice quiz: the header and each task's "Practice Qs" step link to it (new tab).
+  test: { href: "https://www.certsafari.com/anthropic/quiz/claude-certified-architect-foundations", label: "Practice test", title: "Practice questions on CertSafari (opens in a new tab)" },
+  bmTitle: "Bookmarks", bmClear: "Clear all bookmarks", bmSearch: "Search bookmarks",
+  bmGroups: { all: "All", dc: "Decisions & terms", trap: "Traps", note: "Notes" },
+  bmEmpty: "Nothing saved yet. Tap the bookmark button on any decision, fact & term or trap row in a task's pop-up, and it shows up here.",
+  bmNone: "No bookmarks match your search.",
   taskTh: "Task statement",
   progress: "{done} of {total} steps done · {pct}%",
+  cont: "Continue", contTitle: "Open the next step you haven't ticked",
   reset: "Reset", resetConfirm: "Clear all your ticks in the plan?",
   fold: "Show or hide this domain's task statements",
   close: "Close", done: "Mark this step done", prev: "Previous task statement", next: "Next task statement",
@@ -51,13 +58,16 @@ const S = {
     decideTh: ["Symptom in the question", "Usual answer"], termsTh: ["Question", "Answer"],
     trapsTh: ["The trap", "Why it's wrong", "What's actually true"], tips: "How the exam tests this",
     trxTh: "Translate", trxOn: "EN", trxOff: "ع", trxTitle: "Show this in Arabic",
+    bm: "Bookmark", bmRemove: "Remove", bmConfirm: "Remove all your bookmarks?",
+    bmKinds: { dc: "Decision", decide: "Decision", term: "Fact & term", trap: "Trap", concept: "Key concept", note: "Note", fact: "Fact" },
   },
   aboutTitle: "About & disclaimer",
   about: `
     <h3>Unofficial and independent</h3>
     <p>The ${SITE.name} is an independent study aid made by and for a study group. It is not affiliated with, endorsed by, sponsored by or approved by Anthropic, PBC. "Anthropic", "Claude", "Claude Code" and "Claude Certified Architect" are names and trademarks of Anthropic, used here only to identify the exam this guide helps people prepare for.</p>
     <h3>What's here</h3>
-    <p>The study plan lists the exam's five domains and their task statements. Each task statement has a plain-language summary; its decisions (the usual answer for each symptom a question describes) followed by the facts &amp; terms to recall; and its exam traps, beliefs that sound right but aren't. Every row has an Arabic translation one tap away (the ع button).</p>
+    <p>The study plan lists the exam's five domains and their task statements. Each task statement has a plain-language summary; its decisions (the usual answer for each symptom a question describes) followed by the facts &amp; terms to recall; and its exam traps, beliefs that sound right but aren't. Every row has an Arabic translation one tap away (the ع button), and a bookmark button that saves it to your Bookmarks (kept in this browser).</p>
+    <p>Practice test (in the header, and beside each task's Practice Qs tick) opens CertSafari's practice quiz in a new tab. It's an external site that this guide doesn't run or vouch for.</p>
     <h3>No real exam questions</h3>
     <p>Nothing on this site comes from the live exam. It contains no exam questions, answers or recalled items, and it should never be used to share them. Candidates are bound by the exam's confidentiality terms.</p>
     <h3>How to use it</h3>
@@ -66,8 +76,6 @@ const S = {
     <ul>
       <li>The content was drafted with AI assistance and may contain mistakes or omissions.</li>
       <li>Claude, Claude Code, the Agent SDK and MCP change quickly. Flags, field names, limits and model behaviour described here may be out of date. Check the official Anthropic documentation before relying on any detail.</li>
-      <li>Task statements 1.1, 2.4 and 3.6 are only partly covered.</li>
-      <li>The exam format on the study plan (60 questions, 120 minutes, 720 of 1000 to pass) is as reported by candidates and third-party guides, not from an official source.</li>
     </ul>
     <h3>No guarantee</h3>
     <p>Using this guide does not guarantee a passing score. Treat it as a review aid alongside the official documentation and hands-on practice.</p>
@@ -120,11 +128,13 @@ const steps = S.steps;
 const popSteps = steps.filter((s) => s.hash);
 // The 90 open buttons, and the pop-up's section headings, point at one copy of each icon (an inline sprite)
 // instead of repeating its paths.
-const sprite = `<svg class="sprite" aria-hidden="true">${[...popSteps.map((s) => s.ic), "bulb"]
+const sprite = `<svg class="sprite" aria-hidden="true">${[...steps.map((s) => s.ic), "bulb", "bookmark", "x"]
   .map((n) => icon(n).replace(/^<svg[^>]*>/, `<symbol id="pi-${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">`).replace(/<\/svg>$/, "</symbol>"))
   .join("")}</svg>`;
+// Beside each step's checkbox: a link that opens it in the pop-up, or (Practice Qs) the practice test in a new tab.
+const external = `href="${S.test.href}" target="_blank" rel="noopener"`;
 const openLink = (code, s) =>
-  s.hash ? `<a class="plan-open" href="#${code}/${s.hash}" title="${esc(`${s.open} · ${code}`)}" aria-label="${esc(`${s.open} · ${code}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-${s.ic}"/></svg></a>` : "";
+  `<a class="plan-open" ${s.hash ? `href="#${code}/${s.hash}"` : external} title="${esc(`${s.open} · ${code}`)}" aria-label="${esc(`${s.open} · ${code}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-${s.ic}"/></svg></a>`;
 const planGroups = data
   .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th colspan="${steps.length + 1}"><button type="button" class="plan-dh-in" data-plan-fold aria-expanded="true" title="${esc(S.fold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)} <span class="plan-w">${d.weight}%</span></span><span class="Counter" data-plan-count>0/${d.en.length * steps.length}</span></button></th></tr>${d.en
     .map((l) => `<tr data-plan-row="${l.code}"><td class="plan-task"><a href="#${l.code}/summary"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a></td>${steps
@@ -149,6 +159,24 @@ const popDialog = `
     <div class="pop-foot"><button type="button" class="btn" data-pop-go="-1" title="${S.prev}">${icon("arrowLeft")}<span></span></button><label class="toggle pop-done"><input type="checkbox" data-pop-done> <span>${S.done}</span></label><button type="button" class="btn" data-pop-go="1" title="${S.next}"><span></span>${icon("arrowRight")}</button></div>
   </div>
 </dialog>`;
+// Bookmarks: the rows saved from the study pop-up (site.js keeps copies in localStorage and lists them here),
+// filtered by kind; each links back to its task statement.
+const bmDialog = `
+<dialog class="dialog bms" id="bookmarks" aria-labelledby="bm-title" data-bms>
+  <div class="dialog-in">
+    <div class="dialog-head"><div class="dialog-titles"><h2 id="bm-title">${icon("bookmark", "bm-ic")}${S.bmTitle} <span class="Counter" data-bm-total>0</span></h2></div>${closeBtn}</div>
+    <div class="bm-bar" data-bm-bar hidden>
+      <label class="bm-search">${icon("search")}<input type="search" data-bm-q placeholder="${esc(S.bmSearch)}" aria-label="${esc(S.bmSearch)}" autocomplete="off" spellcheck="false"></label>
+      <div class="seg bm-filter" role="group" aria-label="${esc(S.bmTitle)}">${Object.entries(S.bmGroups)
+        .map(([k, v]) => `<button type="button" data-bm-group="${k}" aria-pressed="${k === "all"}">${v} <span class="Counter" data-bm-n="${k}">0</span></button>`)
+        .join("")}</div>
+    </div>
+    <div class="dialog-body bm-body"><div class="bm-list" data-bm-list></div><p class="bm-empty" data-bm-empty>${esc(S.bmEmpty)}</p><p class="bm-empty" data-bm-none hidden>${esc(S.bmNone)}</p>
+      <div class="bm-foot"><button type="button" class="btn btn-sm" data-bm-clear hidden>${icon("x")}${S.bmClear}</button></div></div>
+  </div>
+</dialog>`;
+const nav = `<a class="head-link" href="#bookmarks">${icon("bookmark")}<span>${S.bmTitle}</span><b class="bm-count" data-bm-count hidden></b></a>`;
+const cta = `<a class="head-link head-test" ${external} title="${esc(S.test.title)}">${icon("quiz")}<span>${S.test.label}</span>${icon("external", "ext")}</a>`;
 const aboutDialog = `
 <dialog class="dialog about" id="about" aria-labelledby="about-title" data-about>
   <div class="dialog-in">
@@ -163,6 +191,7 @@ const planData = {
   tasks,
   domains: Object.fromEntries(data.map((d) => [d.n, { label: S.domainLabel(d.n), color: d.color }])),
   steps: Object.fromEntries(popSteps.map((s) => [s.k, s.hash])),
+  names: Object.fromEntries(popSteps.map((s) => [s.k, s.th])),
   text: S.js,
 };
 const body = `
@@ -171,15 +200,18 @@ const body = `
   <div class="plan" data-plan-page data-plan-tpl="${esc(S.progress)}" data-plan-confirm="${esc(S.resetConfirm)}">
     <div class="plan-top">
       <div class="plan-prog"><div class="plan-bar"><span data-plan-bar></span></div><p data-plan-total aria-live="polite"></p></div>
-      <button type="button" class="btn btn-sm" data-plan-reset>${icon("x")}${S.reset}</button>
+      <div class="plan-acts"><a class="btn btn-sm btn-primary" data-plan-next title="${esc(S.contTitle)}" hidden><span>${S.cont}</span><span class="plan-next-at" data-plan-next-at></span>${icon("arrowRight")}</a><button type="button" class="btn btn-sm" data-plan-reset>${icon("x")}${S.reset}</button></div>
     </div>
-    <div class="Box"><div class="tscroll"><table class="gh plan-table"><thead><tr><th>${S.taskTh}</th>${steps.map((s) => `<th class="plan-step">${s.th}</th>`).join("")}</tr></thead>${planGroups}</table></div></div>
+    <div class="Box"><div class="tscroll"><table class="gh plan-table"><thead><tr><th>${S.taskTh}</th>${steps
+      .map((s) => `<th class="plan-step">${s.hash ? s.th : `<a class="th-link" ${external} title="${esc(S.test.title)}">${s.th}${icon("external", "ext")}</a>`}</th>`)
+      .join("")}</tr></thead>${planGroups}</table></div></div>
   </div>
 </div>
 ${popDialog}
+${bmDialog}
 <script type="application/json" id="plan-data">${JSON.stringify(planData).replace(/</g, "\\u003c")}</script>
 ${sprite}`;
-writeFileSync(join(ROOT, "index.html"), layout({ description: S.description, body, about: aboutDialog }), "utf8");
+writeFileSync(join(ROOT, "index.html"), layout({ description: S.description, body, about: aboutDialog, nav, cta }), "utf8");
 
 writeFileSync(
   join(ROOT, "assets", "favicon.svg"),

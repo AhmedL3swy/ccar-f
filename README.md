@@ -1,14 +1,14 @@
 # CCAR-F Field Guide
 
-Unofficial revision site for the Claude Certified Architect – Foundations (CCAR-F) exam. It is one page: a study plan listing the exam's five domains and 30 task statements, with a checkbox for each study step (summary, decisions & terms, exam traps, solved questions). Tapping a task opens it in a pop-up with three tabs:
+Unofficial revision site for the Claude Certified Architect – Foundations (CCAR-F) exam. It is one page: a study plan listing the exam's five domains and 30 task statements, with a checkbox for each study step (summary, decisions & terms, exam traps, practice questions). **Continue**, above the plan, opens the first step you haven't ticked. Tapping a task opens it in a pop-up with three tabs:
 
 - **Summary**: a plain-language summary of the task statement.
 - **Decisions & terms**: the decisions (symptom in the question → usual answer), then, under their own heading, the facts & terms to recall (question → answer).
 - **Traps**: beliefs that sound right but aren't, why each one fails and what's actually true, plus how the exam tests it.
 
-Quiz mode hides the answers until you tap them. Everything is in English; the ع button on each row (and on the summary) shows it in Egyptian Arabic. Ticks, folded domains, quiz mode and the theme are kept in the browser's localStorage.
+Quiz mode hides the answers until you tap them. Everything is in English; the ع button on each row (and on the summary) shows it in Egyptian Arabic. The bookmark button on each decision, fact & term and trap row saves it; **Bookmarks** in the header opens them in a pop-up, with a search box and a filter by kind, each linking back to its task. **Practice test** (in the header, the Practice questions column heading, and beside each task's Practice Qs tick) opens CertSafari's practice quiz in a new tab. Ticks, folded domains, bookmarks, quiz mode and the theme are kept in the browser's localStorage.
 
-Each pop-up has its own address (`#1.4/summary`, `#1.4/decisions`, `#1.4/traps`, `#about`), so the phone's back button closes it and a link can open one directly.
+Each pop-up has its own address (`#1.4/summary`, `#1.4/decisions`, `#1.4/traps`, `#bookmarks`, `#about`), so the phone's back button closes it and a link can open one directly.
 
 ```
 website/
