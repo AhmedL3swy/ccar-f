@@ -49,8 +49,7 @@ const S = {
   cont: "Continue", contTitle: "Open the next step you haven't ticked",
   reset: "Reset", resetConfirm: "Clear all your ticks in the plan?",
   fold: "Show or hide this domain's task statements",
-  domainAll: (n) => `Mark every step in Domain ${n} done (untick to clear them)`,
-  columnAll: (step, n) => `Tick ${step} for every task in Domain ${n} (untick to clear them)`, all: "All",
+  bulk: { label: "Mark all", title: "Tick a step for every task in this domain at once", lead: "Tick a step for every task in this domain. Tap a finished one (✓) to clear it.", every: "Everything" },
   by: { name: "AhmedL3swy", href: "https://github.com/AhmedL3swy/ccar-f/", title: "This site's source on GitHub (opens in a new tab)" },
   close: "Close", done: "Mark this step done", prev: "Previous task statement", next: "Next task statement",
   // Labels site.js builds the pop-up with.
@@ -126,9 +125,9 @@ for (const d of data) {
 /* ---------------------------------------------------------------- Page */
 // The plan: one row per task statement, one checkbox per step (data-plan="1.1:sum"), kept in localStorage by
 // site.js, which also works out the counts and the progress bar. Each domain's heading row folds its task rows
-// away; the checkbox beside its count ticks (or clears) every step in the domain at once, and the "All" checkbox
-// above each step column does the same for that step alone (every summary in the domain, say). The task and the
-// button beside each step's checkbox are links (#1.3/decisions) that open the pop-up.
+// away. Its "Mark all" button opens a row of chips under it that tick one step for every task in the domain
+// (every summary, say) or every step; a finished chip clears them again. Two deliberate taps, so no stray bulk
+// ticks. The task and the button beside each step's checkbox are links (#1.3/decisions) that open the pop-up.
 const steps = S.steps;
 const popSteps = steps.filter((s) => s.hash);
 // The 90 open buttons, and the pop-up's section headings, point at one copy of each icon (an inline sprite)
@@ -140,10 +139,14 @@ const sprite = `<svg class="sprite" aria-hidden="true">${[...steps.map((s) => s.
 const external = `href="${S.test.href}" target="_blank" rel="noopener"`;
 const openLink = (code, s) =>
   `<a class="plan-open" ${s.hash ? `href="#${code}/${s.hash}"` : external} title="${esc(`${s.open} · ${code}`)}" aria-label="${esc(`${s.open} · ${code}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#pi-${s.ic}"/></svg></a>`;
+const cols = steps.length + 1;
+// A "Mark all" chip: its step's name (or Everything) and how many of the domain's are ticked.
+const chip = (attr, label, n) =>
+  `<button type="button" class="plan-chip" ${attr} aria-pressed="false">${icon("check", "plan-chip-ok")}<span>${label}</span><span class="Counter" data-plan-n>0/${n}</span></button>`;
 const planGroups = data
-  .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th><div class="plan-dh-in"><button type="button" class="plan-dh-fold" data-plan-fold aria-expanded="true" title="${esc(S.fold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)} <span class="plan-w">${d.weight}%</span></span></button><label class="plan-dh-all" title="${esc(S.domainAll(d.n))}"><span class="Counter" data-plan-count>0/${d.en.length * steps.length}</span><input type="checkbox" data-plan-all aria-label="${esc(S.domainAll(d.n))}"></label></div></th>${steps
-    .map((s) => `<td class="plan-step" data-label="${esc(s.short)}"><div class="plan-cell"><label class="plan-cb plan-col" title="${esc(S.columnAll(s.th, d.n))}"><input type="checkbox" data-plan-col="${s.k}" aria-label="${esc(S.columnAll(s.th, d.n))}"><span>${S.all}</span></label></div></td>`)
-    .join("")}</tr>${d.en
+  .map((d) => `<tbody data-plan-d="${d.n}" style="--c:${d.color}"><tr class="plan-dh"><th colspan="${cols}"><div class="plan-dh-in"><button type="button" class="plan-dh-fold" data-plan-fold aria-expanded="true" title="${esc(S.fold)}">${icon("chevronDown", "plan-chev")}<span class="Label">${S.domainLabel(d.n)}</span><span class="plan-dt">${esc(d.title)} <span class="plan-w">${d.weight}%</span></span><span class="Counter" data-plan-count>0/${d.en.length * steps.length}</span></button><button type="button" class="plan-bulk-btn" data-plan-bulk aria-expanded="false" aria-controls="plan-bulk-${d.n}" title="${esc(S.bulk.title)}">${icon("checks")}<span>${S.bulk.label}</span></button></div></th></tr><tr class="plan-bulk" id="plan-bulk-${d.n}" hidden><td colspan="${cols}"><div class="plan-bulk-in"><p>${esc(S.bulk.lead)}</p><div class="plan-chips">${steps
+    .map((s) => chip(`data-plan-col="${s.k}"`, s.short, d.en.length))
+    .join("")}${chip("data-plan-all", S.bulk.every, d.en.length * steps.length)}</div></div></td></tr>${d.en
     .map((l) => `<tr data-plan-row="${l.code}"><td class="plan-task"><a href="#${l.code}/summary"><b>${esc(l.code)}</b><span>${md(l.task)}</span></a></td>${steps
       .map((s) => `<td class="plan-step" data-label="${esc(s.short)}"><div class="plan-cell"><label class="plan-cb"><input type="checkbox" data-plan="${l.code}:${s.k}" aria-label="${esc(`${l.code} · ${s.th}`)}"></label>${openLink(l.code, s)}</div></td>`)
       .join("")}</tr>`)
