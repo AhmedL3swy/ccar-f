@@ -48,6 +48,10 @@ const S = {
   progress: "{done} of {total} steps done · {pct}%",
   cont: "Continue", contTitle: "Open the next step you haven't ticked",
   reset: "Reset", resetConfirm: "Clear all your ticks in the plan?",
+  // Two remembered options above the plan.
+  hide: { label: "Hide completed tasks", title: "Hide the task statements whose steps are all ticked, and the domains that are finished" },
+  congrats: { title: "All done!! Congrats", text: (n) => `You've ticked all ${n} steps in the plan. Good luck in the exam!` },
+  skip: { label: "Skip completed in Next / Previous", title: "In a task's pop-up, Next and Previous skip the task statements where you've already ticked that step" },
   fold: "Show or hide this domain's task statements",
   bulk: { label: "Mark all", title: "Tick a step for every task in this domain at once", lead: "Tick a step for every task in this domain. Tap a finished one (✓) to clear it.", every: "Everything" },
   by: { name: "AhmedL3swy", href: "https://github.com/AhmedL3swy/ccar-f/", title: "This site's source on GitHub (opens in a new tab)" },
@@ -212,6 +216,10 @@ const body = `
       <div class="plan-prog"><div class="plan-bar"><span data-plan-bar></span></div><p data-plan-total aria-live="polite"></p></div>
       <div class="plan-acts"><a class="btn btn-sm btn-primary" data-plan-next title="${esc(S.contTitle)}" hidden><span>${S.cont}</span><span class="plan-next-at" data-plan-next-at></span>${icon("arrowRight")}</a><button type="button" class="btn btn-sm" data-plan-reset>${icon("x")}${S.reset}</button></div>
     </div>
+    <div class="flash plan-congrats" role="status" data-plan-congrats hidden>${icon("party")}<div><p class="plan-congrats-t">${S.congrats.title}</p><p>${esc(S.congrats.text(tasks.length * steps.length))}</p></div></div>
+    <div class="plan-opts">${[["hide", S.hide], ["skip", S.skip]]
+      .map(([k, o]) => `<label class="toggle" title="${esc(o.title)}"><input type="checkbox" data-plan-${k}> ${o.label}</label>`)
+      .join("")}</div>
     <div class="Box"><div class="tscroll"><table class="gh plan-table"><thead><tr><th>${S.taskTh}</th>${steps
       .map((s) => `<th class="plan-step">${s.hash ? s.th : `<a class="th-link" ${external} title="${esc(S.test.title)}">${s.th}${icon("external", "ext")}</a>`}</th>`)
       .join("")}</tr></thead>${planGroups}</table></div></div>

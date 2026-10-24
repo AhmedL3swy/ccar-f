@@ -46,21 +46,30 @@
   var planGet = function () {
     try { var v = JSON.parse(store.get(PLAN_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; }
   };
-  var planBoxes = $$("[data-plan]", planPage), planNext = $("[data-plan-next]", planPage);
+  var planBoxes = $$("[data-plan]", planPage), planNext = $("[data-plan-next]", planPage), planShown = false;
   var ticked = function (bs) { return bs.filter(function (b) { return b.checked; }).length; };
   // The step checkboxes a "Mark all" chip stands for: all of the domain's, or just one step's.
   var covers = function (c) {
     var k = c.getAttribute("data-plan-col");
     return $$("[data-plan]", c.closest("[data-plan-d]")).filter(function (b) { return !k || b.getAttribute("data-plan").split(":")[1] === k; });
   };
+  // Marks a finished task row or domain. One just finished, with "Hide completed" on, fades for a moment before it
+  // goes, so what's below doesn't jump up under the pointer mid-click.
+  var markDone = function (el, fin) {
+    if (fin && planShown && !el.classList.contains("done")) {
+      el.classList.add("leaving");
+      setTimeout(function () { el.classList.remove("leaving"); }, 1500);
+    }
+    el.classList.toggle("done", fin);
+  };
   var planShow = function () {
     var saved = planGet();
     planBoxes.forEach(function (b) { b.checked = !!saved[b.getAttribute("data-plan")]; });
-    $$("[data-plan-row]", planPage).forEach(function (r) { var bs = $$("[data-plan]", r); r.classList.toggle("done", ticked(bs) === bs.length); });
+    $$("[data-plan-row]", planPage).forEach(function (r) { var bs = $$("[data-plan]", r); markDone(r, ticked(bs) === bs.length); });
     $$("[data-plan-d]", planPage).forEach(function (g) {
       var bs = $$("[data-plan]", g), n = ticked(bs);
       $("[data-plan-count]", g).textContent = n + "/" + bs.length;
-      g.classList.toggle("done", n === bs.length);
+      markDone(g, n === bs.length);
       $$("[data-plan-all], [data-plan-col]", g).forEach(function (c) {
         var cs = covers(c), m = ticked(cs);
         c.setAttribute("aria-pressed", m === cs.length ? "true" : "false");
@@ -70,6 +79,8 @@
     var done = ticked(planBoxes), pct = Math.round((done * 100) / planBoxes.length);
     $("[data-plan-bar]", planPage).style.width = pct + "%";
     $("[data-plan-total]", planPage).textContent = planPage.getAttribute("data-plan-tpl").replace("{done}", done).replace("{total}", planBoxes.length).replace("{pct}", pct);
+    planPage.classList.toggle("all-done", done === planBoxes.length);
+    $("[data-plan-congrats]", planPage).hidden = done !== planBoxes.length;
     // Continue: the first step in plan order that opens in the pop-up and isn't ticked yet (none left: hidden).
     var next = planBoxes.filter(function (b) { return !b.checked && plan.steps[b.getAttribute("data-plan").split(":")[1]]; })[0];
     planNext.hidden = !next;
@@ -78,7 +89,8 @@
       planNext.setAttribute("href", hashFor({ code: at[0], tab: at[1] }));
       $("[data-plan-next-at]", planNext).innerHTML = "<b>" + at[0] + "</b> " + esc(plan.names[at[1]]);
     }
-    if (pop && pop.open) popDone.checked = !!saved[popAt.code + ":" + popAt.tab];
+    if (pop && pop.open) { popDone.checked = !!saved[popAt.code + ":" + popAt.tab]; popArrows(); }
+    planShown = true;
   };
   var planSet = function (bs, on) {
     var saved = planGet();
@@ -128,6 +140,18 @@
     if (fold) saved[n] = 1; else delete saved[n];
     store.set(FOLD_KEY, JSON.stringify(saved));
   });
+
+  // The options above the plan (remembered): hide the finished task rows, and have the pop-up's Next / Previous
+  // skip the task statements whose open step is already ticked.
+  var hideDone = $("[data-plan-hide]", planPage), skipDone = $("[data-plan-skip]", planPage);
+  hideDone.checked = store.get("ccarf-hide-done") === "1";
+  skipDone.checked = store.get("ccarf-skip-done") === "1";
+  planPage.classList.toggle("hide-done", hideDone.checked);
+  hideDone.addEventListener("change", function () {
+    store.set("ccarf-hide-done", hideDone.checked ? "1" : "0");
+    planPage.classList.toggle("hide-done", hideDone.checked);
+  });
+  skipDone.addEventListener("change", function () { store.set("ccarf-skip-done", skipDone.checked ? "1" : "0"); });
 
   /* ---------- Pop-ups and their addresses ----------
      Each pop-up has an address: #1.4/summary, #1.4/decisions or #1.4/traps (the study pop-up), #bookmarks and #about.
@@ -264,12 +288,7 @@
     $$("[data-pop-n]", pop).forEach(function (n) { n.textContent = t.n[Number(n.getAttribute("data-pop-n"))]; });
     $$("[data-pop-tab]", pop).forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-pop-tab") === at.tab ? "true" : "false"); });
     popDone.checked = !!planGet()[at.code + ":" + at.tab];
-    [-1, 1].forEach(function (step) {
-      var b = $("[data-pop-go='" + step + "']", pop), to = codes[i + step];
-      b.disabled = !to;
-      b.style.visibility = to ? "" : "hidden";
-      $("span", b).textContent = to || "";
-    });
+    popArrows();
     popBody.innerHTML = note(T.loading);
     popBody.scrollTop = 0;
     loadPop(t.d, function (P) {
@@ -279,13 +298,30 @@
       bmMarks();
     });
   };
+  // Where Previous (-1) or Next (1) goes: the neighbouring task statement or, with "Skip completed" on, the nearest
+  // one whose open step isn't ticked yet. None: the arrow hides.
+  var popTarget = function (step) {
+    var saved = planGet();
+    for (var i = codes.indexOf(popAt.code) + step; i >= 0 && i < codes.length; i += step) {
+      if (!skipDone.checked || !saved[codes[i] + ":" + popAt.tab]) return codes[i];
+    }
+    return null;
+  };
+  var popArrows = function () {
+    [-1, 1].forEach(function (step) {
+      var b = $("[data-pop-go='" + step + "']", pop), to = popTarget(step);
+      b.disabled = !to;
+      b.style.visibility = to ? "" : "hidden";
+      $("span", b).textContent = to || "";
+    });
+  };
   var popGo = function (at) { popAt = at; replace(hashFor(at)); popRender(); };
   pop.addEventListener("click", function (e) {
     var tb = e.target.closest("[data-pop-tab]");
     if (tb) { popGo({ code: popAt.code, tab: tb.getAttribute("data-pop-tab") }); return; }
     var go = e.target.closest("[data-pop-go]");
     if (go) {
-      var to = codes[codes.indexOf(popAt.code) + Number(go.getAttribute("data-pop-go"))];
+      var to = popTarget(Number(go.getAttribute("data-pop-go")));
       if (to) popGo({ code: to, tab: popAt.tab });
     }
   });

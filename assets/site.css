@@ -235,6 +235,15 @@ tr.translated td:not(.trx) { background: color-mix(in srgb, var(--accent) 4%, va
 .plan-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .plan-next-at { font-weight: 400; }
 .plan-next-at b { font-family: var(--mono); font-weight: 600; }
+/* Every step ticked: congratulations, where Continue was */
+.plan-congrats { --c: var(--success); display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.plan-congrats > svg { flex: none; width: 30px; height: 30px; color: var(--success); }
+.plan-congrats-t { font-size: 16px; font-weight: 600; color: var(--fg); }
+.plan-congrats p + p { font-size: 14px; color: var(--fg-muted); }
+/* The options above the plan: quiet until switched on */
+.plan-opts { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: -6px 0 12px; }
+.plan-opts .toggle { min-height: 32px; font-size: 13px; color: var(--fg-muted); }
+.plan-opts .toggle:has(input:checked) { color: var(--fg); }
 table.plan-table td { vertical-align: middle; }
 table.plan-table thead th { vertical-align: bottom; }
 table.plan-table thead th.plan-step { min-width: 104px; white-space: normal; text-align: center; line-height: 1.35; }
@@ -265,6 +274,11 @@ table.gh.plan-table tr.plan-bulk td { padding: 10px 14px 12px; background: var(-
 .plan-chev { flex: none; width: 16px; height: 16px; color: var(--fg-muted); transition: transform .15s; }
 tbody.folded .plan-chev { transform: rotate(-90deg); }
 table.plan-table tbody.folded tr[data-plan-row] { display: none !important; }
+/* "Hide completed tasks": the finished rows and domains go (with everything finished, the whole table). One that's
+   just been finished fades for a moment first (site.js). */
+.hide-done table.plan-table tbody.done:not(.leaving), .hide-done table.plan-table tr.done[data-plan-row]:not(.leaving),
+.plan.hide-done.all-done > .Box:not(:has(.leaving)) { display: none !important; }
+.hide-done table.plan-table tr.leaving, .hide-done table.plan-table tbody.leaving > tr { opacity: .4; transition: opacity 1.4s; }
 .plan-dt { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--fg); }
 .plan-w { font-weight: 400; color: var(--fg-muted); font-size: 13px; white-space: nowrap; }
 /* The task opens its summary in the pop-up */
@@ -465,5 +479,5 @@ main { display: block; padding-bottom: 40px; }
 .totop svg { width: 18px; height: 18px; }
 
 @media print {
-  .site-header, .site-footer, .totop, .skip, .plan-top .btn, .plan-open { display: none !important; }
+  .site-header, .site-footer, .totop, .skip, .plan-top .btn, .plan-opts, .plan-open { display: none !important; }
 }
