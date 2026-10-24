@@ -653,7 +653,7 @@ tr.translated td:not(.trx) { background: color-mix(in srgb, var(--accent) 4%, va
 .sum-close { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--btn-bg); color: var(--fg-muted); cursor: pointer; }
 .sum-close:hover { color: var(--fg); background: var(--btn-hover); }
 .sum-close svg { width: 16px; height: 16px; }
-.sum-body { flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; padding: 16px 18px 22px; overflow: auto; display: grid; gap: 12px; font-size: 15.5px; line-height: 1.7; }
+.sum-body { flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; padding: 16px 18px 22px; overflow: auto; display: grid; grid-auto-rows: max-content; gap: 12px; font-size: 15.5px; line-height: 1.7; }
 .sum-intro { color: var(--fg-muted); }
 .sum-sub { font-size: 12px; font-weight: 600; color: var(--fg-muted); margin-top: 4px; }
 .sum-item { padding-top: 12px; border-top: 1px solid var(--border-muted); }
